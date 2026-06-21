@@ -9,16 +9,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      // PKCE + state + nonce handled by NextAuth v5 by default
+      // NextAuth v5 handles PKCE + state + nonce by default
     }),
   ],
+  pages: {
+    signIn: "/login",
+  },
   callbacks: {
     async signIn({ profile }) {
       if (!profile?.email) return false;
 
-      // Upsert user
       const existing = await db
-        .select()
+        .select({ id: users.id })
         .from(users)
         .where(eq(users.email, profile.email))
         .limit(1);
@@ -34,21 +36,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             authProviderId: profile.sub,
           })
           .returning();
-
-        // Seed default preferences
         await db.insert(usersPreferences).values({ userId: newUser.id });
       }
 
       return true;
     },
-    async session({ session, token }) {
-      if (token.sub && session.user) {
+    async jwt({ token, profile }) {
+      // On first sign-in, look up our internal user id and store in token
+      if (profile?.email) {
         const [user] = await db
           .select({ id: users.id })
           .from(users)
-          .where(eq(users.authProviderId, token.sub))
+          .where(eq(users.email, profile.email))
           .limit(1);
-        if (user) (session.user as { id?: string }).id = user.id;
+        if (user) token.userId = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (token.userId && session.user) {
+        (session.user as { id?: string }).id = token.userId as string;
       }
       return session;
     },
@@ -60,7 +67,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        maxAge: 60 * 60 * 24 * 30, // 30 days
+        maxAge: 60 * 60 * 24 * 30,
       },
     },
   },
