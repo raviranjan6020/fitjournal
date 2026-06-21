@@ -6,12 +6,14 @@ node_modules/
 # Next.js
 .next/
 out/
+next-env.d.ts
+tsconfig.tsbuildinfo
 
 # Env
 .env
 .env.local
 .env.*.local
-
+client_secret_13245877328-jcd8u0gr4csa39pm8lv3rd0qna7uht6n.apps.googleusercontent.com.json
 # Build
 dist/
 
