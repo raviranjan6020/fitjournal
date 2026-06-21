@@ -1,0 +1,98 @@
+# K8s deployment — activate when migrating off Vercel (see hld.md K8s path)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fitjournal
+  labels:
+    app: fitjournal
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: fitjournal
+  template:
+    metadata:
+      labels:
+        app: fitjournal
+    spec:
+      containers:
+        - name: fitjournal
+          image: gcr.io/PROJECT_ID/fitjournal:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: fitjournal-secrets
+                  key: database-url
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: fitjournal-secrets
+                  key: nextauth-secret
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fitjournal-svc
+spec:
+  selector:
+    app: fitjournal
+  ports:
+    - port: 80
+      targetPort: 3000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: fitjournal-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: fitjournal
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: weekly-report
+spec:
+  schedule: "0 2 * * 1"   # Monday 02:00 UTC — same as Vercel cron
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: cron
+              image: gcr.io/PROJECT_ID/fitjournal:latest
+              command: ["node", "-e", "require('./modules/cron/weekly-report').runWeeklyReports()"]
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: fitjournal-secrets
+                      key: database-url

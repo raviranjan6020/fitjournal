@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #0066FF;
+  --success: #16A34A;
+  --warning: #D97706;
+  --danger:  #DC2626;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: #F9FAFB;
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
+}
