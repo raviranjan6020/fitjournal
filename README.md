@@ -17,12 +17,24 @@ AI-powered fitness journal. Not a workout logger — answers "Is my fitness plan
 
 ```bash
 cp .env.example .env.local
-# fill in all env vars
+# fill in DATABASE_URL from Neon dashboard
+# fill in GOOGLE_CLIENT_ID/SECRET, NEXTAUTH_SECRET, OPENAI_API_KEY, RESEND_API_KEY
 
 npm install
-npm run db:push        # push schema to Neon
+
+# Push schema to Neon (first time / after schema changes)
+npm run db:push
+
+# Seed exercise library (~48 exercises)
+npm run db:seed
+
 npm run dev
 ```
+
+### Neon setup (one-time)
+1. Create account at https://neon.tech
+2. New project → copy connection string
+3. Paste as `DATABASE_URL` in `.env.local`
 
 ## Docs
 
