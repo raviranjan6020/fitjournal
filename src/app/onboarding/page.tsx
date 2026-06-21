@@ -3,14 +3,22 @@ import { redirect } from "next/navigation";
 import { getOnboardingStatus } from "@/modules/users/service";
 import { OnboardingWizard } from "./wizard";
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ force?: string }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const status = await getOnboardingStatus(session.user.id as string);
+  const { force } = await searchParams;
 
-  // Already onboarded — skip to dashboard
-  if (status.profileComplete && status.goalSet) redirect("/dashboard");
+  if (!force) {
+    const status = await getOnboardingStatus(session.user.id as string);
+    if (status.profileComplete && status.goalSet) redirect("/dashboard");
+  }
+
+  const status = await getOnboardingStatus(session.user.id as string);
 
   return <OnboardingWizard initialStep={status.profileComplete ? 3 : 2} />;
 }
