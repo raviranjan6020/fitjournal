@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
@@ -8,6 +8,12 @@ export const metadata: Metadata = {
   title: "FitJournal — Track. Improve. Transform.",
   description: "Track workouts, weight, and weekly progress. Get coaching insights that turn logged data into real gains.",
   manifest: "/manifest.webmanifest",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
   themeColor: "#0066FF",
 };
 
