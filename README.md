@@ -52,9 +52,31 @@ EPICs #1–9, Stories + Tasks #10–51.
 
 ## Deploy
 
-Push to `main` → Vercel auto-deploys.
-Set env vars in Vercel dashboard (see `.env.example`).
-Cron: `vercel.json` → `0 2 * * 1` (Monday 02:00 UTC).
+### Vercel (one-time setup)
+
+1. Go to https://vercel.com → New Project → Import `raviranjan6020/fitjournal`
+2. Framework preset: **Next.js** (auto-detected)
+3. Add all env vars from `.env.local` in the Vercel dashboard (Settings → Environment Variables):
+
+```
+DATABASE_URL          = <neon connection string>
+NEXTAUTH_URL          = https://fitjournal.in
+NEXTAUTH_SECRET       = <value from .env.local>
+GOOGLE_CLIENT_ID      = <from Google Cloud Console>
+GOOGLE_CLIENT_SECRET  = <from Google Cloud Console>
+OPENAI_API_KEY        = <from OpenAI>
+RESEND_API_KEY        = <from Resend>
+RESEND_FROM_EMAIL     = reports@fitjournal.app
+CRON_SECRET           = <value from .env.local>
+NEXT_PUBLIC_APP_URL   = https://fitjournal.in
+```
+
+4. Add Google OAuth callback URL in Google Cloud Console:
+   `https://fitjournal.in/api/auth/callback/google`
+
+5. Deploy → Vercel auto-deploys on every push to `main`
+
+Cron `vercel.json`: `0 2 * * 1` → Monday 02:00 UTC, weekly report.
 
 ## K8s path
 

@@ -2,8 +2,6 @@ import { getOrBuildSnapshot } from "@/modules/analytics/service";
 import { buildSystemPrompt } from "./prompt-builder";
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 export async function askCoach(userId: string, question: string) {
   const snapshot = await getOrBuildSnapshot(userId);
 
@@ -14,6 +12,8 @@ export async function askCoach(userId: string, question: string) {
   const systemPrompt = buildSystemPrompt(snapshot.content as Record<string, unknown>);
 
   try {
+    // Lazy init — avoids build-time crash when OPENAI_API_KEY not set
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
