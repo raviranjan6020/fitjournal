@@ -60,7 +60,7 @@ EPICs #1–9, Stories + Tasks #10–51.
 
 ```
 DATABASE_URL          = <neon connection string>
-NEXTAUTH_URL          = https://your-app.vercel.app
+NEXTAUTH_URL          = https://fitjournal.in
 NEXTAUTH_SECRET       = <value from .env.local>
 GOOGLE_CLIENT_ID      = <from Google Cloud Console>
 GOOGLE_CLIENT_SECRET  = <from Google Cloud Console>
@@ -68,11 +68,11 @@ OPENAI_API_KEY        = <from OpenAI>
 RESEND_API_KEY        = <from Resend>
 RESEND_FROM_EMAIL     = reports@fitjournal.app
 CRON_SECRET           = <value from .env.local>
-NEXT_PUBLIC_APP_URL   = https://your-app.vercel.app
+NEXT_PUBLIC_APP_URL   = https://fitjournal.in
 ```
 
 4. Add Google OAuth callback URL in Google Cloud Console:
-   `https://your-app.vercel.app/api/auth/callback/google`
+   `https://fitjournal.in/api/auth/callback/google`
 
 5. Deploy → Vercel auto-deploys on every push to `main`
 
