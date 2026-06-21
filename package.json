@@ -10,8 +10,9 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:push": "dotenv -e .env.local -- drizzle-kit push",
+    "db:studio": "dotenv -e .env.local -- drizzle-kit studio",
+    "db:seed": "dotenv -e .env.local -- tsx src/db/seed/exercises.ts"
   },
   "dependencies": {
     "next": "^15.1.0",
@@ -43,6 +44,8 @@
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.1.0",
     "@eslint/eslintrc": "^3.3.1",
+    "dotenv-cli": "^8.0.0",
+    "tsx": "^4.19.0",
     "drizzle-kit": "^0.30.0"
   }
 }
