@@ -1,4 +1,4 @@
-import { pgTable, text, numeric, integer, boolean, timestamp, uuid, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, numeric, integer, timestamp, uuid, unique } from "drizzle-orm/pg-core";
 import { users } from "./users";
 
 export const bodyMetrics = pgTable("body_metrics", {
