@@ -2,19 +2,83 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * FitJournal design system — Athletic Precision.
+ * Ported from Lovable prototype.
+ */
+
 :root {
-  --primary: #0066FF;
-  --success: #16A34A;
-  --warning: #D97706;
-  --danger:  #DC2626;
+  --radius: 0.875rem;
+  --background: oklch(0.985 0.002 247);
+  --surface: oklch(0.995 0.001 247);
+  --foreground: oklch(0.21 0.034 264);
+  --primary: oklch(0.58 0.225 258);           /* #0066FF */
+  --primary-foreground: oklch(1 0 0);
+  --muted: oklch(0.96 0.005 247);
+  --muted-foreground: oklch(0.55 0.022 257);  /* #6B7280 */
+  --accent: oklch(0.95 0.02 258);
+  --accent-foreground: oklch(0.58 0.225 258);
+  --border: oklch(0.92 0.008 255);            /* #E5E7EB */
+  --input: oklch(0.92 0.008 255);
+  --ring: oklch(0.58 0.225 258);
+  --success: oklch(0.62 0.16 148);            /* #16A34A */
+  --success-foreground: oklch(1 0 0);
+  --warning: oklch(0.66 0.16 55);             /* #D97706 */
+  --warning-foreground: oklch(1 0 0);
+  --danger: oklch(0.58 0.22 27);              /* #DC2626 */
+  --danger-foreground: oklch(1 0 0);
 }
 
-* {
-  box-sizing: border-box;
+@layer base {
+  * {
+    box-sizing: border-box;
+    border-color: oklch(0.92 0.008 255);
+  }
+
+  body {
+    background-color: oklch(0.985 0.002 247);
+    color: oklch(0.21 0.034 264);
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
 }
 
-body {
-  background: #F9FAFB;
-  color: #111827;
-  -webkit-font-smoothing: antialiased;
+/* Utility classes matching Lovable tokens */
+@layer utilities {
+  .bg-background  { background-color: oklch(0.985 0.002 247); }
+  .bg-surface     { background-color: oklch(0.995 0.001 247); }
+  .bg-primary     { background-color: oklch(0.58 0.225 258); }
+  .bg-accent      { background-color: oklch(0.95 0.02 258); }
+  .bg-muted       { background-color: oklch(0.96 0.005 247); }
+  .bg-success     { background-color: oklch(0.62 0.16 148); }
+  .bg-warning     { background-color: oklch(0.66 0.16 55); }
+  .bg-danger      { background-color: oklch(0.58 0.22 27); }
+  .bg-foreground  { background-color: oklch(0.21 0.034 264); }
+
+  .text-primary          { color: oklch(0.58 0.225 258); }
+  .text-primary-foreground { color: oklch(1 0 0); }
+  .text-muted-foreground { color: oklch(0.55 0.022 257); }
+  .text-success          { color: oklch(0.62 0.16 148); }
+  .text-warning          { color: oklch(0.66 0.16 55); }
+  .text-danger           { color: oklch(0.58 0.22 27); }
+  .text-background       { color: oklch(1 0 0); }
+
+  .border-border  { border-color: oklch(0.92 0.008 255); }
+  .border-primary { border-color: oklch(0.58 0.225 258); }
+  .border-success { border-color: oklch(0.62 0.16 148); }
+  .border-warning { border-color: oklch(0.66 0.16 55); }
+  .border-danger  { border-color: oklch(0.58 0.22 27); }
+
+  .ring-border  { --tw-ring-color: oklch(0.92 0.008 255); }
+  .ring-primary { --tw-ring-color: oklch(0.58 0.225 258); }
+
+  /* success/warning/danger with opacity */
+  .bg-success\/10 { background-color: oklch(0.62 0.16 148 / 0.1); }
+  .bg-warning\/10 { background-color: oklch(0.66 0.16 55  / 0.1); }
+  .bg-danger\/10  { background-color: oklch(0.58 0.22 27  / 0.1); }
+  .bg-primary\/10 { background-color: oklch(0.58 0.225 258 / 0.1); }
+  .border-success\/20 { border-color: oklch(0.62 0.16 148 / 0.2); }
+  .border-primary\/10 { border-color: oklch(0.58 0.225 258 / 0.1); }
+
+  .accent-foreground { color: oklch(0.58 0.225 258); }
 }
