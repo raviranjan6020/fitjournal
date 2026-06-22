@@ -78,6 +78,6 @@ NEXT_PUBLIC_APP_URL   = https://fitjournal.in
 
 Cron `vercel.json`: `0 2 * * 1` → Monday 02:00 UTC, weekly report.
 
-## K8s path
+## K8s path(future)
 
 See `k8s/manifests.yaml` — zero app changes needed to run on GCP/K8s.
