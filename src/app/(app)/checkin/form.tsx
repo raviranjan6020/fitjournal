@@ -54,12 +54,18 @@ export function CheckinForm({ today, existing, yesterdayWeight, proteinTarget, w
 
   return (
     <div className="min-h-dvh bg-background">
-      {/* Header */}
+      {/* Header — matches Lovable PageHeader */}
       <header className="bg-surface px-5 py-4 border-b border-border sticky top-0 z-10">
-        <div className="max-w-md mx-auto flex items-center justify-between">
-          <button onClick={() => router.back()} className="text-muted-foreground text-sm">← Back</button>
-          <h1 className="text-sm font-semibold">Daily Check-in</h1>
-          <span className="w-12" />
+        <div className="max-w-md mx-auto">
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.back()} className="size-9 -ml-1 grid place-items-center text-muted-foreground hover:text-foreground">
+              ←
+            </button>
+            <div>
+              <h1 className="text-base font-semibold leading-tight">Daily Check-in</h1>
+              <p className="text-xs text-muted-foreground">{dateLabel}</p>
+            </div>
+          </div>
         </div>
       </header>
 
