@@ -57,26 +57,41 @@ export default async function DashboardPage() {
             <div className="flex justify-between items-start gap-3">
               <div>
                 <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Goal: {goal.goalType.replace("_", " ")}
+                  Goal: {goal.goalType.replace(/_/g, " ")}
                 </h2>
-                {trend?.recent_avg_kg && goal.targetWeightKg ? (
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <span className="text-2xl font-semibold">{trend.recent_avg_kg}</span>
-                    <span className="text-muted-foreground">→</span>
-                    <span className="text-2xl font-semibold text-muted-foreground/70">{goal.targetWeightKg} kg</span>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground mt-1">Log weight to track progress</p>
-                )}
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-2xl font-semibold">
+                    {todayCheckin.bodyMetrics?.weightKg
+                      ? `${Number(todayCheckin.bodyMetrics.weightKg)}kg`
+                      : trend?.recent_avg_kg ? `${trend.recent_avg_kg}kg` : "—"}
+                  </span>
+                  {goal.targetWeightKg && (
+                    <>
+                      <span className="text-muted-foreground">→</span>
+                      <span className="text-2xl font-semibold text-muted-foreground/70">{goal.targetWeightKg}kg</span>
+                    </>
+                  )}
+                </div>
               </div>
-              {trend && trend.status !== "no_data" && (
-                <span className={`text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full ${statusColor} bg-current/10`}>
-                  {trendStatus.replace("_", " ")}
+              {trendStatus !== "no_data" ? (
+                <span className={`text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full ${statusColor} bg-muted`}>
+                  {trendStatus.replace(/_/g, " ")}
+                </span>
+              ) : (
+                <span className="text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full text-muted-foreground bg-muted">
+                  Tracking
                 </span>
               )}
             </div>
-            {trend?.kg_per_week !== null && trend?.kg_per_week !== undefined && (
+            {/* Show trend message when available, else show days logged */}
+            {trendStatus !== "no_data" && trend?.message ? (
               <p className="text-xs text-muted-foreground">{trend.message}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {trend && trend.data_points > 0
+                  ? `${trend.data_points} weigh-ins logged. Trend unlocks after ${Math.max(0, 8 - trend.data_points)} more.`
+                  : "Log your weight daily to track progress."}
+              </p>
             )}
           </section>
         ) : (
@@ -114,14 +129,6 @@ export default async function DashboardPage() {
             target={prefs?.proteinTargetG ? `/${Number(prefs.proteinTargetG)}g` : undefined} />
           <StatCard label="Sleep" value={todayCheckin.sleep?.hours ? `${Number(todayCheckin.sleep.hours)}h` : "—"} />
         </section>
-
-        {/* Empty analytics state */}
-        {trendStatus === "no_data" && (
-          <section className="bg-surface p-5 rounded-2xl ring-1 ring-black/5 text-center space-y-2">
-            <p className="text-sm font-semibold">Analytics unlock after 2 weeks</p>
-            <p className="text-xs text-muted-foreground">Keep logging daily check-ins to see your progress insights.</p>
-          </section>
-        )}
 
       </div>
     </div>
