@@ -26,12 +26,17 @@ export async function upsertCheckin(userId: string, input: CheckinInput) {
   if (input.weightKg !== undefined || input.bodyFatPct !== undefined) {
     const [row] = await db
       .insert(bodyMetrics)
-      .values({ userId, date, weightKg: String(input.weightKg), bodyFatPct: String(input.bodyFatPct) })
+      .values({
+        userId,
+        date,
+        weightKg:   input.weightKg   !== undefined ? String(input.weightKg)   : undefined,
+        bodyFatPct: input.bodyFatPct  !== undefined ? String(input.bodyFatPct) : undefined,
+      })
       .onConflictDoUpdate({
         target: [bodyMetrics.userId, bodyMetrics.date],
         set: {
-          weightKg: input.weightKg !== undefined ? String(input.weightKg) : undefined,
-          bodyFatPct: input.bodyFatPct !== undefined ? String(input.bodyFatPct) : undefined,
+          weightKg:   input.weightKg   !== undefined ? String(input.weightKg)   : undefined,
+          bodyFatPct: input.bodyFatPct  !== undefined ? String(input.bodyFatPct) : undefined,
           updatedAt: new Date(),
         },
       })
@@ -42,12 +47,19 @@ export async function upsertCheckin(userId: string, input: CheckinInput) {
   if (input.proteinG !== undefined || input.waterL !== undefined) {
     const [row] = await db
       .insert(nutritionLogs)
-      .values({ userId, date, proteinG: input.proteinG, waterL: String(input.waterL) })
+      .values({
+        userId,
+        date,
+        proteinG: input.proteinG,
+        waterL:   input.waterL !== undefined ? String(input.waterL) : undefined,
+        calories: input.calories,
+      })
       .onConflictDoUpdate({
         target: [nutritionLogs.userId, nutritionLogs.date],
         set: {
           proteinG: input.proteinG,
-          waterL: input.waterL !== undefined ? String(input.waterL) : undefined,
+          waterL:   input.waterL !== undefined ? String(input.waterL) : undefined,
+          calories: input.calories,
           updatedAt: new Date(),
         },
       })
