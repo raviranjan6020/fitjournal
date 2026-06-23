@@ -4,6 +4,7 @@ import { getCheckinForDate } from "@/modules/body-metrics/service";
 import { computeWeightTrend } from "@/modules/body-metrics/trend";
 import { isoDate } from "@/lib/utils";
 import Link from "next/link";
+import { InlineCheckin } from "./inline-checkin";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -101,7 +102,7 @@ export default async function DashboardPage() {
           </section>
         )}
 
-        {/* Today check-in CTA */}
+        {/* Today check-in — inline form (Lovable spec: dark card, 2x2 grid) */}
         {checkedIn ? (
           <section className="bg-success/10 border border-success/20 p-4 rounded-2xl flex items-center justify-between">
             <div>
@@ -115,11 +116,7 @@ export default async function DashboardPage() {
             <Link href="/checkin" className="text-xs font-semibold text-primary">Edit</Link>
           </section>
         ) : (
-          <Link href="/checkin"
-            className="block bg-foreground text-background p-5 rounded-2xl space-y-1">
-            <p className="text-sm font-semibold">Log today&apos;s check-in</p>
-            <p className="text-xs opacity-60">Weight · Protein · Water · Sleep · ~30 sec</p>
-          </Link>
+          <InlineCheckin proteinTarget={prefs?.proteinTargetG ? Number(prefs.proteinTargetG) : 134} waterTarget={prefs?.waterTargetL ? Number(prefs.waterTargetL) : 2.5} />
         )}
 
         {/* Quick stats */}
