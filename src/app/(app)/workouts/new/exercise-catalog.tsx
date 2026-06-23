@@ -45,8 +45,12 @@ export function ExerciseCatalog({ added, onAdd, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="mt-auto bg-background rounded-t-2xl max-h-[88dvh] flex flex-col" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/50" onClick={onClose}>
+      <div
+        className="mt-auto w-full bg-background rounded-t-3xl flex flex-col"
+        style={{ maxHeight: "90dvh" }}
+        onClick={e => e.stopPropagation()}
+      >
         {/* Handle */}
         <div className="w-10 h-1 bg-border rounded-full mx-auto mt-3 mb-2" />
 
@@ -82,27 +86,38 @@ export function ExerciseCatalog({ added, onAdd, onClose }: Props) {
         </div>
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto px-5 pb-5 space-y-1.5">
+        <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
           {filtered.map(ex => {
             const isAdded    = added.includes(ex.id);
             const isSelected = selected.has(ex.id);
             return (
               <button key={ex.id} onClick={() => !isAdded && toggle(ex.id)}
                 disabled={isAdded}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors ${
-                  isAdded   ? "bg-muted opacity-50 cursor-not-allowed" :
-                  isSelected ? "bg-primary/10 ring-1 ring-primary" :
-                               "bg-surface ring-1 ring-black/5 hover:ring-primary/30"
+                className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left transition-colors min-h-[56px] ${
+                  isAdded    ? "bg-muted opacity-50 cursor-not-allowed" :
+                  isSelected ? "bg-primary/10 ring-2 ring-primary" :
+                               "bg-surface ring-1 ring-black/5 active:bg-accent"
                 }`}>
-                <div>
-                  <p className="text-sm font-medium">{ex.name}</p>
-                  <p className="text-[11px] text-muted-foreground capitalize">{ex.muscleGroups.join(", ")} · {ex.equipment}</p>
+                {/* Checkbox */}
+                <span className={`shrink-0 size-5 rounded-md border-2 grid place-items-center transition-colors ${
+                  isSelected ? "bg-primary border-primary" : isAdded ? "border-border" : "border-border"
+                }`}>
+                  {isSelected && <Check className="size-3 text-white" />}
+                  {isAdded && <Check className="size-3 text-muted-foreground" />}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{ex.name}</p>
+                  <p className="text-[11px] text-muted-foreground capitalize truncate">
+                    {ex.muscleGroups.slice(0,2).join(", ")} · {ex.equipment}
+                  </p>
                 </div>
-                {isAdded && <span className="text-[10px] font-semibold text-muted-foreground uppercase">Added</span>}
-                {isSelected && !isAdded && <Check className="size-4 text-primary shrink-0" />}
+                {isAdded && <span className="text-[10px] font-semibold text-muted-foreground uppercase shrink-0">In workout</span>}
               </button>
             );
           })}
+          {filtered.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-8">No exercises found.</p>
+          )}
         </div>
 
         {/* CTA */}

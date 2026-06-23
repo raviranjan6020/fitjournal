@@ -25,11 +25,11 @@ export async function GET(req: Request) {
     .from(exerciseLibrary)
     .where(
       or(
-        isNull(exerciseLibrary.createdBy),              // system exercises
-        eq(exerciseLibrary.createdBy, session.user.id as string), // user's custom
+        isNull(exerciseLibrary.createdBy),
+        eq(exerciseLibrary.createdBy, session.user.id as string),
       ),
     )
-    .orderBy(exerciseLibrary.name);
+    .orderBy(exerciseLibrary.name); // alphabetical
 
   const filtered = exercises.filter(e => {
     const matchQ      = !q      || e.name.toLowerCase().includes(q.toLowerCase());
