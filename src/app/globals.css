@@ -2,25 +2,57 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 249 250 251;    /* #F9FAFB */
-    --surface:    255 255 255;    /* #FFFFFF */
-    --foreground:  17  24  39;    /* #111827 */
-    --primary:      0 102 255;    /* #0066FF */
-    --muted:      243 244 246;    /* #F3F4F6 */
-    --muted-fg:   107 114 128;    /* #6B7280 */
-    --border:     229 231 235;    /* #E5E7EB */
-    --success:     22 163  74;    /* #16A34A */
-    --warning:    217 119   6;    /* #D97706 */
-    --danger:     220  38  38;    /* #DC2626 */
-  }
+/* ── FitJournal design tokens ─────────────────────────────────────── */
+/* Dark "Precision Athletic" = default. Light = .light class override. */
 
-  * { box-sizing: border-box; }
+:root {
+  --radius: 0.875rem;
+
+  /* Dark theme (default) — neutral-950 bg, lime-400 primary */
+  --background:          oklch(0.17 0 0);       /* neutral-950   */
+  --surface:             oklch(0.235 0 0);      /* neutral-900   */
+  --foreground:          oklch(0.985 0 0);      /* near-white    */
+  --primary:             oklch(0.87 0.21 125);  /* lime-400      */
+  --primary-foreground:  oklch(0.17 0 0);
+  --muted:               oklch(0.28 0 0);
+  --muted-foreground:    oklch(0.62 0 0);
+  --accent:              oklch(0.28 0 0);
+  --accent-foreground:   oklch(0.87 0.21 125);
+  --border:              oklch(0.30 0 0);
+  --success:             oklch(0.82 0.18 135);
+  --success-foreground:  oklch(0.17 0 0);
+  --warning:             oklch(0.78 0.14 70);
+  --warning-foreground:  oklch(0.17 0 0);
+  --danger:              oklch(0.66 0.21 25);
+  --danger-foreground:   oklch(1 0 0);
+}
+
+/* Light theme */
+.light {
+  --background:          oklch(0.985 0.002 247); /* #F9FAFB       */
+  --surface:             oklch(1 0 0);            /* white         */
+  --foreground:          oklch(0.21 0.034 264);   /* #111827       */
+  --primary:             oklch(0.58 0.225 258);   /* #0066FF       */
+  --primary-foreground:  oklch(1 0 0);
+  --muted:               oklch(0.96 0.005 247);
+  --muted-foreground:    oklch(0.55 0.022 257);
+  --accent:              oklch(0.95 0.02 258);
+  --accent-foreground:   oklch(0.58 0.225 258);
+  --border:              oklch(0.92 0.008 255);
+  --success:             oklch(0.62 0.16 148);
+  --success-foreground:  oklch(1 0 0);
+  --warning:             oklch(0.66 0.16 55);
+  --warning-foreground:  oklch(1 0 0);
+  --danger:              oklch(0.58 0.22 27);
+  --danger-foreground:   oklch(1 0 0);
+}
+
+@layer base {
+  * { box-sizing: border-box; border-color: var(--border); }
 
   body {
-    background-color: rgb(var(--background));
-    color: rgb(var(--foreground));
+    background-color: var(--background);
+    color: var(--foreground);
     font-family: Inter, system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
   }

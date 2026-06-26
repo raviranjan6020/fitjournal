@@ -6,32 +6,37 @@ const config: Config = {
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  darkMode: ["class", ".dark"],  // next-themes adds .dark class
   theme: {
     extend: {
       colors: {
-        background:  "rgb(249 250 251)",   // #F9FAFB
-        surface:     "rgb(255 255 255)",   // #FFFFFF
-        foreground:  "rgb(17 24 39)",      // #111827
+        background:  "var(--background)",
+        surface:     "var(--surface)",
+        foreground:  "var(--foreground)",
         primary: {
-          DEFAULT:    "rgb(0 102 255)",    // #0066FF
-          foreground: "rgb(255 255 255)",
+          DEFAULT:    "var(--primary)",
+          foreground: "var(--primary-foreground)",
         },
         muted: {
-          DEFAULT:    "rgb(243 244 246)",  // #F3F4F6
-          foreground: "rgb(107 114 128)", // #6B7280
+          DEFAULT:    "var(--muted)",
+          foreground: "var(--muted-foreground)",
         },
-        border:      "rgb(229 231 235)",   // #E5E7EB
+        accent: {
+          DEFAULT:    "var(--accent)",
+          foreground: "var(--accent-foreground)",
+        },
+        border:  "var(--border)",
         success: {
-          DEFAULT:    "rgb(22 163 74)",    // #16A34A
-          foreground: "rgb(255 255 255)",
+          DEFAULT:    "var(--success)",
+          foreground: "var(--success-foreground)",
         },
         warning: {
-          DEFAULT:    "rgb(217 119 6)",    // #D97706
-          foreground: "rgb(255 255 255)",
+          DEFAULT:    "var(--warning)",
+          foreground: "var(--warning-foreground)",
         },
         danger: {
-          DEFAULT:    "rgb(220 38 38)",    // #DC2626
-          foreground: "rgb(255 255 255)",
+          DEFAULT:    "var(--danger)",
+          foreground: "var(--danger-foreground)",
         },
       },
       borderRadius: {
@@ -42,9 +47,6 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
-      },
-      screens: {
-        // mobile-first defaults fine; ensure max-md for bottom nav
       },
     },
   },
