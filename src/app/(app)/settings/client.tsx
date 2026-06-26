@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+import { useTheme } from "next-themes";
 
 type Profile = {
   name: string | null; email: string; heightCm: string | null;
@@ -162,6 +163,10 @@ export function SettingsClient({ profile }: { profile: Profile }) {
               <Toggle label="Push notifications" checked={pushOn} onChange={setPush} />
               <Toggle label="WhatsApp" checked={waOn} onChange={setWa} />
             </div>
+            <div className="pt-1 space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Appearance</p>
+              <ThemeToggleRow />
+            </div>
             <SaveBtn onClick={savePrefs} loading={saving} />
           </div>
         )}
@@ -204,3 +209,20 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 }
 
 const inp = "w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none";
+
+function ThemeToggleRow() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <div className="flex items-center justify-between gap-3 py-2">
+      <span className="text-sm font-medium">Theme</span>
+      <div className="flex gap-1 bg-muted p-1 rounded-lg">
+        {(["dark", "light"] as const).map(t => (
+          <button key={t} onClick={() => setTheme(t)}
+            className={`px-3 py-1 rounded-md text-xs font-semibold capitalize transition-colors ${theme === t ? "bg-surface text-foreground" : "text-muted-foreground"}`}>
+            {t}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
