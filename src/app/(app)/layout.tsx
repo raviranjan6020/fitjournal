@@ -1,8 +1,10 @@
+import { BottomNav } from "@/components/layout/BottomNav";
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh bg-gray-50">
+    <div className="min-h-dvh bg-background">
       <div className="pb-24">{children}</div>
-      {/* TODO: BottomNav — issue #47 */}
+      <BottomNav />
     </div>
   );
 }
