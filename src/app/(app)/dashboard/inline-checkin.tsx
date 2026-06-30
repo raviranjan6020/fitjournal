@@ -36,22 +36,23 @@ export function InlineCheckin({ proteinTarget, waterTarget }: { proteinTarget: n
   ];
 
   return (
-    <section className="bg-foreground text-background p-5 rounded-2xl space-y-4">
+    <section className="bg-surface border border-border p-5 rounded-2xl space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold uppercase tracking-wider opacity-60">Today&apos;s Check-in</h3>
-        <span className="text-[11px] opacity-50 uppercase tracking-widest">~30 sec</span>
+        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Today&apos;s Check-in</h3>
+        <span className="text-[10px] text-muted-foreground font-mono uppercase">~30 sec</span>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         {fields.map(f => (
           <div key={f.label} className="space-y-1.5">
-            <label className="text-[10px] font-medium opacity-50 uppercase tracking-widest block">{f.label}</label>
+            <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground block">{f.label}</label>
             <input
               type="number"
+              inputMode="decimal"
               placeholder={f.placeholder}
               value={f.value}
               onChange={e => f.set(e.target.value)}
-              className="w-full bg-white/10 border-0 rounded-lg px-3 py-2 text-sm placeholder:text-white/40 focus:ring-2 focus:ring-primary outline-none"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm font-mono placeholder:text-muted-foreground/50 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
             />
           </div>
         ))}
