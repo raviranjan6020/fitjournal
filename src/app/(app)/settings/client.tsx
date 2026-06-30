@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, LogOut } from "lucide-react";
 import { useTheme } from "next-themes";
 
 type Profile = {
@@ -170,6 +170,17 @@ export function SettingsClient({ profile }: { profile: Profile }) {
             <SaveBtn onClick={savePrefs} loading={saving} />
           </div>
         )}
+
+        {/* Logout */}
+        <button
+          onClick={async () => {
+            await fetch("/api/auth/signout", { method: "POST" });
+            router.push("/login");
+          }}
+          className="w-full bg-danger/10 text-danger py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-danger/20 transition"
+        >
+          <LogOut className="size-4" /> Sign Out
+        </button>
       </div>
     </div>
   );
