@@ -3,34 +3,32 @@
 @tailwind utilities;
 
 /* ── FitJournal Multi-Theme System ───────────────────────────────── */
-/* Theme = color palette. Mode = dark/light. Both selectable by user. */
-/* Default: theme-lime + dark mode                                    */
+/* Pure black background in dark. Pure white in light. No shaded greys. */
 
 /* ─── THEME: LIME ATHLETIC (default) ─────────────────────────────── */
 :root, .theme-lime {
   --radius: 0.875rem;
-  /* Dark mode (default) */
-  --background:         #171717;
-  --surface:            #262626;
-  --foreground:         #fafafa;
+  --background:         #000000;
+  --surface:            #171717;
+  --foreground:         #ffffff;
   --primary:            #a3e635;
-  --primary-foreground: #171717;
-  --muted:              #333333;
+  --primary-foreground: #000000;
+  --muted:              #262626;
   --muted-foreground:   #a3a3a3;
-  --accent:             #333333;
+  --accent:             #262626;
   --accent-foreground:  #a3e635;
-  --border:             #404040;
+  --border:             #2a2a2a;
   --success:            #86efac;
-  --success-foreground: #171717;
+  --success-foreground: #000000;
   --warning:            #fbbf24;
-  --warning-foreground: #171717;
+  --warning-foreground: #000000;
   --danger:             #f87171;
   --danger-foreground:  #ffffff;
 }
-.theme-lime.light, .light .theme-lime, :root.light {
-  --background:         #f9fafb;
-  --surface:            #ffffff;
-  --foreground:         #111827;
+.theme-lime.light, .light.theme-lime, :root.light {
+  --background:         #ffffff;
+  --surface:            #f9fafb;
+  --foreground:         #000000;
   --primary:            #65a30d;
   --primary-foreground: #ffffff;
   --muted:              #f3f4f6;
@@ -48,16 +46,16 @@
 
 /* ─── THEME: BLUE CLASSIC ────────────────────────────────────────── */
 .theme-blue {
-  --background:         #0f172a;
-  --surface:            #1e293b;
-  --foreground:         #f8fafc;
+  --background:         #000000;
+  --surface:            #0f1729;
+  --foreground:         #ffffff;
   --primary:            #3b82f6;
   --primary-foreground: #ffffff;
-  --muted:              #334155;
+  --muted:              #1e293b;
   --muted-foreground:   #94a3b8;
   --accent:             #1e3a5f;
   --accent-foreground:  #60a5fa;
-  --border:             #334155;
+  --border:             #1e293b;
   --success:            #22c55e;
   --success-foreground: #ffffff;
   --warning:            #f59e0b;
@@ -66,9 +64,9 @@
   --danger-foreground:  #ffffff;
 }
 .theme-blue.light {
-  --background:         #f8fafc;
-  --surface:            #ffffff;
-  --foreground:         #0f172a;
+  --background:         #ffffff;
+  --surface:            #f8fafc;
+  --foreground:         #000000;
   --primary:            #2563eb;
   --primary-foreground: #ffffff;
   --muted:              #f1f5f9;
@@ -86,27 +84,27 @@
 
 /* ─── THEME: PURPLE NIGHT ────────────────────────────────────────── */
 .theme-purple {
-  --background:         #1a1025;
-  --surface:            #2d1f3d;
-  --foreground:         #f5f3ff;
+  --background:         #000000;
+  --surface:            #1a1025;
+  --foreground:         #ffffff;
   --primary:            #a78bfa;
-  --primary-foreground: #1a1025;
-  --muted:              #3b2d50;
+  --primary-foreground: #000000;
+  --muted:              #2d1f3d;
   --muted-foreground:   #a1a1aa;
-  --accent:             #3b2d50;
+  --accent:             #2d1f3d;
   --accent-foreground:  #c4b5fd;
-  --border:             #4c3a63;
+  --border:             #3b2d50;
   --success:            #86efac;
-  --success-foreground: #171717;
+  --success-foreground: #000000;
   --warning:            #fcd34d;
-  --warning-foreground: #171717;
+  --warning-foreground: #000000;
   --danger:             #fb7185;
   --danger-foreground:  #ffffff;
 }
 .theme-purple.light {
-  --background:         #faf5ff;
-  --surface:            #ffffff;
-  --foreground:         #1a1025;
+  --background:         #ffffff;
+  --surface:            #faf5ff;
+  --foreground:         #000000;
   --primary:            #7c3aed;
   --primary-foreground: #ffffff;
   --muted:              #f3e8ff;
@@ -124,27 +122,27 @@
 
 /* ─── THEME: WARM ORANGE ─────────────────────────────────────────── */
 .theme-orange {
-  --background:         #1c1210;
-  --surface:            #2c1f1a;
-  --foreground:         #fef3c7;
+  --background:         #000000;
+  --surface:            #1c1210;
+  --foreground:         #ffffff;
   --primary:            #fb923c;
-  --primary-foreground: #1c1210;
-  --muted:              #3d2a22;
+  --primary-foreground: #000000;
+  --muted:              #2c1f1a;
   --muted-foreground:   #a1a1aa;
-  --accent:             #3d2a22;
+  --accent:             #2c1f1a;
   --accent-foreground:  #fdba74;
-  --border:             #4d3428;
+  --border:             #3d2a22;
   --success:            #86efac;
-  --success-foreground: #171717;
+  --success-foreground: #000000;
   --warning:            #fbbf24;
-  --warning-foreground: #171717;
+  --warning-foreground: #000000;
   --danger:             #f87171;
   --danger-foreground:  #ffffff;
 }
 .theme-orange.light {
-  --background:         #fffbeb;
-  --surface:            #ffffff;
-  --foreground:         #1c1210;
+  --background:         #ffffff;
+  --surface:            #fffbeb;
+  --foreground:         #000000;
   --primary:            #ea580c;
   --primary-foreground: #ffffff;
   --muted:              #fff7ed;
