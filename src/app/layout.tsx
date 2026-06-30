@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { AppThemeProvider } from "@/components/layout/AppThemeProvider";
+import { ServiceWorkerRegistrar } from "@/components/layout/ServiceWorkerRegistrar";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -21,7 +22,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="theme-lime dark" suppressHydrationWarning>
       <body className={inter.className}>
-        <AppThemeProvider>{children}</AppThemeProvider>
+        <AppThemeProvider>
+          <ServiceWorkerRegistrar />
+          {children}
+        </AppThemeProvider>
       </body>
     </html>
   );
