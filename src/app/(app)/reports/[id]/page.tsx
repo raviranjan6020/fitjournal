@@ -113,9 +113,9 @@ export default async function ReportDetailPage({
         )}
 
         {/* Recommendation */}
-        <Card className="bg-foreground text-background !ring-0">
-          <p className="text-[11px] font-semibold uppercase tracking-widest opacity-60">This Week</p>
-          <p className="text-sm mt-2 leading-relaxed">{c.recommendation}</p>
+        <Card className="bg-primary/10 border border-primary/20 !ring-0">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-primary">This Week</p>
+          <p className="text-sm mt-2 leading-relaxed text-foreground">{c.recommendation}</p>
         </Card>
 
         {/* Coach CTA */}
