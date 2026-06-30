@@ -1,5 +1,6 @@
 import { getOrBuildSnapshot } from "@/modules/analytics/service";
 import { buildSystemPrompt } from "./prompt-builder";
+import { templateAnswer } from "./template-fallback";
 import OpenAI from "openai";
 
 export async function askCoach(userId: string, question: string) {
@@ -9,10 +10,18 @@ export async function askCoach(userId: string, question: string) {
     return { answer: "Keep logging! Coach insights unlock after 2 weeks of data.", has_data: false };
   }
 
-  const systemPrompt = buildSystemPrompt(snapshot.content as Record<string, unknown>);
+  const content = snapshot.content as Record<string, unknown>;
+
+  // If no OpenAI key → use template-based answers (free, no LLM)
+  if (!process.env.OPENAI_API_KEY) {
+    const answer = templateAnswer(question, content);
+    return { answer, has_data: true, tokens_used: 0, source: "template" };
+  }
+
+  // LLM path
+  const systemPrompt = buildSystemPrompt(content);
 
   try {
-    // Lazy init — avoids build-time crash when OPENAI_API_KEY not set
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -25,8 +34,10 @@ export async function askCoach(userId: string, question: string) {
     });
 
     const answer = completion.choices[0]?.message?.content ?? "No response.";
-    return { answer, has_data: true, tokens_used: completion.usage?.total_tokens };
+    return { answer, has_data: true, tokens_used: completion.usage?.total_tokens, source: "ai" };
   } catch {
-    return { answer: "Coach is temporarily unavailable. Your analytics are still ready — check your dashboard.", has_data: true };
+    // Fallback to template on LLM error
+    const answer = templateAnswer(question, content);
+    return { answer, has_data: true, tokens_used: 0, source: "template_fallback" };
   }
 }
