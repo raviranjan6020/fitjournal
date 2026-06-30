@@ -7,7 +7,7 @@ import { ExerciseCatalog } from "./exercise-catalog";
 
 type Stage = "setup" | "active" | "complete";
 
-type SetRow = { id?: string; w: string; r: string; done: boolean; isPR?: boolean; isWarmup?: boolean };
+type SetRow = { id?: string; w: string; r: string; done: boolean; isPR?: boolean; isWarmup?: boolean; saving?: boolean };
 type ActiveExercise = {
   logId: string;
   exerciseId: string;
@@ -36,6 +36,7 @@ export function WorkoutLogger() {
   const [catalog,   setCatalog]   = useState(false);
   const [elapsedS,  setElapsed]   = useState(0);
   const [newPRs,    setNewPRs]    = useState<{ name: string; weightKg: number; reps: number }[]>([]);
+  const [loading,   setLoading]   = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -48,40 +49,38 @@ export function WorkoutLogger() {
   const elapsed = `${String(Math.floor(elapsedS / 60)).padStart(2,"0")}:${String(elapsedS % 60).padStart(2,"0")}`;
 
   async function startWorkout() {
-    const res = await fetch("/api/workouts/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workoutType: type, name: name.trim() || undefined }),
-    });
-    const session = await res.json();
-    setSessionId(session.id);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/workouts/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workoutType: type, name: name.trim() || undefined }),
+      });
+      const session = await res.json();
+      setSessionId(session.id);
 
-    // Seed default exercises
-    const defaultNames = DEFAULTS[type] ?? [];
-    if (defaultNames.length) {
-      // Get exercise IDs for defaults
-      const libRes = await fetch("/api/exercises");
-      const lib: { id: string; name: string; slug: string }[] = await libRes.json();
-      const toAdd = lib.filter(e => defaultNames.includes(e.name));
+      const defaultNames = DEFAULTS[type] ?? [];
+      if (defaultNames.length) {
+        const libRes = await fetch("/api/exercises");
+        const lib: { id: string; name: string; slug: string }[] = await libRes.json();
+        const toAdd = lib.filter(e => defaultNames.includes(e.name));
 
-      const seeded: ActiveExercise[] = [];
-      for (const ex of toAdd) {
-        const logRes = await fetch(`/api/workouts/sessions/${session.id}/exercises`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ exerciseId: ex.id }),
-        });
-        const log = await logRes.json();
-
-        // Load last session prefill
-        const prefillRes = await fetch(`/api/exercises?lastSets=${ex.id}`);
-        const lastSets = await prefillRes.json();
-
-        seeded.push({ logId: log.id, exerciseId: ex.id, name: ex.name, lastSets, sets: [{ w: "", r: "", done: false }] });
+        const seeded: ActiveExercise[] = [];
+        for (const ex of toAdd) {
+          const logRes = await fetch(`/api/workouts/sessions/${session.id}/exercises`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ exerciseId: ex.id }),
+          });
+          const log = await logRes.json();
+          const prefillRes = await fetch(`/api/exercises?lastSets=${ex.id}`);
+          const lastSets = await prefillRes.json();
+          seeded.push({ logId: log.id, exerciseId: ex.id, name: ex.name, lastSets, sets: [{ w: "", r: "", done: false }] });
+        }
+        setExercises(seeded);
       }
-      setExercises(seeded);
-    }
-    setStage("active");
+      setStage("active");
+    } finally { setLoading(false); }
   }
 
   async function addExercisesFromCatalog(selected: { id: string; name: string }[]) {
@@ -110,50 +109,63 @@ export function WorkoutLogger() {
     }));
   }
 
-  async function toggleSetDone(eIdx: number, sIdx: number) {
+  async function submitSet(eIdx: number, sIdx: number) {
     const ex  = exercises[eIdx];
     const set = ex.sets[sIdx];
-    if (!set.done && set.w && set.r && sessionId) {
-      // Save to API
+
+    // Already saved — don't double-submit
+    if (set.done || set.saving || set.id) return;
+
+    // Require both fields
+    if (!set.w || !set.r) return;
+
+    const weightKg = Number(set.w);
+    const reps     = Number(set.r);
+    if (isNaN(weightKg) || isNaN(reps) || weightKg <= 0 || reps <= 0) return;
+
+    // Mark as saving to prevent double-tap
+    setExercises(prev => prev.map((e, i) => i !== eIdx ? e : {
+      ...e, sets: e.sets.map((s, j) => j !== sIdx ? s : { ...s, saving: true }),
+    }));
+
+    try {
       const res = await fetch(`/api/workouts/sessions/${sessionId}/exercises/${ex.logId}/sets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ weightKg: Number(set.w), reps: Number(set.r), isWarmup: set.isWarmup ?? false }),
+        body: JSON.stringify({ weightKg, reps, isWarmup: set.isWarmup ?? false }),
       });
       const saved = await res.json();
       if (saved.isPR) {
-        setNewPRs(prev => [...prev, { name: ex.name, weightKg: Number(set.w), reps: Number(set.r) }]);
+        setNewPRs(prev => [...prev, { name: ex.name, weightKg, reps }]);
       }
       setExercises(prev => prev.map((e, i) => i !== eIdx ? e : {
         ...e,
-        sets: e.sets.map((s, j) => j !== sIdx ? s : { ...s, done: true, id: saved.id, isPR: saved.isPR }),
+        sets: e.sets.map((s, j) => j !== sIdx ? s : { ...s, done: true, saving: false, id: saved.id, isPR: saved.isPR }),
       }));
-    } else {
+    } catch {
+      // Reset saving state on error
       setExercises(prev => prev.map((e, i) => i !== eIdx ? e : {
-        ...e,
-        sets: e.sets.map((s, j) => j !== sIdx ? s : { ...s, done: !s.done }),
+        ...e, sets: e.sets.map((s, j) => j !== sIdx ? s : { ...s, saving: false }),
       }));
     }
   }
 
-  function addSet(eIdx: number) {
+  function addSet(eIdx: number, isWarmup = false) {
     setExercises(prev => prev.map((e, i) => i !== eIdx ? e : {
       ...e,
-      sets: [...e.sets, { w: "", r: "", done: false }],
+      sets: [...e.sets, { w: "", r: "", done: false, isWarmup }],
     }));
   }
 
   async function finish() {
     if (sessionId) {
-      const totalSets = exercises.reduce((n, e) => n + e.sets.filter(s => s.done).length, 0);
       await fetch(`/api/workouts/sessions/${sessionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ durationMin: Math.round(elapsedS / 60) }),
+        body: JSON.stringify({ durationMin: Math.max(1, Math.round(elapsedS / 60)) }),
       });
       if (timerRef.current) clearInterval(timerRef.current);
       setStage("complete");
-      void totalSets;
     }
   }
 
@@ -183,9 +195,9 @@ export function WorkoutLogger() {
             placeholder={`Monday ${type.replace("_"," ")}`} className={inp} />
         </Field>
         <p className="text-xs text-muted-foreground">Default exercises for {type.replace("_"," ")} will be added automatically.</p>
-        <button onClick={startWorkout}
-          className="w-full bg-primary text-primary-foreground py-3.5 rounded-xl font-semibold text-sm">
-          Start Workout →
+        <button onClick={startWorkout} disabled={loading}
+          className="w-full bg-primary text-primary-foreground py-3.5 rounded-xl font-semibold text-sm disabled:opacity-60">
+          {loading ? "Starting..." : "Start Workout →"}
         </button>
       </div>
     </div>
@@ -193,7 +205,7 @@ export function WorkoutLogger() {
 
   // ── ACTIVE ─────────────────────────────────────────────────────────────────
   if (stage === "active") return (
-    <div className="min-h-dvh bg-background pb-24">
+    <div className="min-h-dvh bg-background pb-6">
       <header className="bg-surface px-5 py-4 border-b border-border sticky top-0 z-10">
         <div className="max-w-md mx-auto flex items-center justify-between">
           <button onClick={() => router.back()} className="size-9 grid place-items-center text-muted-foreground"><X className="size-5" /></button>
@@ -213,44 +225,51 @@ export function WorkoutLogger() {
 
         {exercises.map((ex, eIdx) => (
           <section key={ex.logId} className="bg-surface rounded-2xl ring-1 ring-black/5 overflow-hidden">
-            <div className="p-4 border-b border-border flex justify-between items-start gap-2">
-              <div>
-                <h3 className="font-semibold text-sm">{ex.name}</h3>
-                {ex.lastSets.length > 0 && (
-                  <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                    Last: {ex.lastSets.map(s => `${s.weightKg}×${s.reps}`).join(", ")}
-                  </p>
-                )}
-              </div>
+            <div className="p-4 border-b border-border">
+              <h3 className="font-semibold text-sm">{ex.name}</h3>
+              {ex.lastSets.length > 0 && (
+                <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                  Last: {ex.lastSets.map(s => `${s.weightKg}×${s.reps}`).join(", ")}
+                </p>
+              )}
             </div>
 
             {/* Set rows */}
             <div className="divide-y divide-border">
               {ex.sets.map((s, sIdx) => (
                 <div key={sIdx} className={`px-3 py-2.5 flex items-center gap-2 ${s.done ? "bg-success/5" : ""}`}>
-                  <span className="w-5 text-xs font-bold text-muted-foreground text-center shrink-0">{sIdx + 1}</span>
-                  <input type="number" placeholder="kg" value={s.w}
+                  <span className={`w-5 text-xs font-bold text-center shrink-0 ${s.isWarmup ? "text-warning" : "text-muted-foreground"}`}>
+                    {s.isWarmup ? "W" : sIdx + 1}
+                  </span>
+                  <input type="number" inputMode="decimal" step="0.5" placeholder="kg" value={s.w}
                     onChange={e => updateSet(eIdx, sIdx, "w", e.target.value)}
                     disabled={s.done}
-                    className="flex-1 min-w-0 bg-background rounded-lg px-2.5 py-2 text-sm font-mono text-center border-0 outline-none disabled:opacity-60" />
+                    className="flex-1 min-w-0 bg-background rounded-lg px-2.5 py-2.5 text-sm font-mono text-center border border-border outline-none focus:border-primary disabled:opacity-60" />
                   <span className="text-muted-foreground text-sm shrink-0">×</span>
-                  <input type="number" placeholder="reps" value={s.r}
+                  <input type="number" inputMode="numeric" placeholder="reps" value={s.r}
                     onChange={e => updateSet(eIdx, sIdx, "r", e.target.value)}
                     disabled={s.done}
-                    className="flex-1 min-w-0 bg-background rounded-lg px-2.5 py-2 text-sm font-mono text-center border-0 outline-none disabled:opacity-60" />
-                  <button onClick={() => toggleSetDone(eIdx, sIdx)}
-                    aria-label={s.done ? "Mark incomplete" : "Mark complete"}
-                    className={`size-9 shrink-0 rounded-lg grid place-items-center transition-colors ${s.done ? "bg-success text-white" : "bg-muted text-muted-foreground"}`}>
+                    className="flex-1 min-w-0 bg-background rounded-lg px-2.5 py-2.5 text-sm font-mono text-center border border-border outline-none focus:border-primary disabled:opacity-60" />
+                  <button
+                    onClick={() => submitSet(eIdx, sIdx)}
+                    disabled={s.done || s.saving || !s.w || !s.r}
+                    aria-label={s.done ? "Set saved" : "Save set"}
+                    className={`size-10 shrink-0 rounded-lg grid place-items-center transition-colors ${
+                      s.done   ? "bg-success text-white" :
+                      s.saving ? "bg-warning/20 text-warning animate-pulse" :
+                      (s.w && s.r) ? "bg-primary/20 text-primary" :
+                      "bg-muted text-muted-foreground"
+                    }`}>
                     <Check className="size-4" />
                   </button>
-                  {s.isPR && <span className="text-[10px] font-bold text-success uppercase tracking-wide shrink-0">PR</span>}
+                  {s.isPR && <span className="text-[10px] font-bold text-success uppercase shrink-0">PR</span>}
                 </div>
               ))}
             </div>
 
             <div className="flex divide-x divide-border">
-              <button onClick={() => addSet(eIdx)} className="flex-1 py-3 text-xs font-semibold text-primary hover:bg-accent">+ Set</button>
-              <button onClick={() => addSet(eIdx)} className="flex-1 py-3 text-xs font-semibold text-muted-foreground hover:bg-accent">W+ Warmup</button>
+              <button onClick={() => addSet(eIdx, false)} className="flex-1 py-3 text-xs font-semibold text-primary hover:bg-accent">+ Set</button>
+              <button onClick={() => addSet(eIdx, true)} className="flex-1 py-3 text-xs font-semibold text-warning hover:bg-accent">W+ Warmup</button>
             </div>
           </section>
         ))}
@@ -277,39 +296,38 @@ export function WorkoutLogger() {
     n + e.sets.filter(s => s.done && s.w && s.r).reduce((v, s) => v + Number(s.w) * Number(s.r), 0), 0);
 
   return (
-    <div className="max-w-md mx-auto px-5 py-12 space-y-6 text-center">
-      <div className="size-20 rounded-3xl bg-success/10 text-success mx-auto grid place-items-center">
-        <Trophy className="size-10" />
+    <div className="min-h-dvh bg-background flex items-center">
+      <div className="max-w-md mx-auto px-5 py-12 space-y-6 text-center w-full">
+        <div className="size-20 rounded-3xl bg-success/10 text-success mx-auto grid place-items-center">
+          <Trophy className="size-10" />
+        </div>
+        {newPRs.length > 0 ? (
+          <div>
+            <h2 className="text-2xl font-bold">New PR! 🎉</h2>
+            {newPRs.map((pr, i) => (
+              <p key={i} className="text-muted-foreground mt-1">{pr.name} — {pr.weightKg}kg × {pr.reps}</p>
+            ))}
+          </div>
+        ) : (
+          <div>
+            <h2 className="text-2xl font-bold">Workout Complete!</h2>
+            <p className="text-muted-foreground mt-2">Great work.</p>
+          </div>
+        )}
+        <div className="bg-surface rounded-2xl ring-1 ring-black/5 p-5 text-left space-y-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Summary</h3>
+          <div className="space-y-2 text-sm">
+            <Row k="Exercises" v={String(exercises.length)} />
+            <Row k="Sets completed" v={String(totalSets)} />
+            <Row k="Duration" v={`${Math.max(1, Math.round(elapsedS / 60))} min`} />
+            <Row k="Total volume" v={`${totalVol.toLocaleString()} kg`} />
+          </div>
+        </div>
+        <button onClick={() => router.push("/dashboard")}
+          className="w-full bg-primary text-primary-foreground py-3.5 rounded-xl font-semibold text-sm">
+          Back to Dashboard
+        </button>
       </div>
-
-      {newPRs.length > 0 ? (
-        <div>
-          <h2 className="text-2xl font-bold">New PR! 🎉</h2>
-          {newPRs.map((pr, i) => (
-            <p key={i} className="text-muted-foreground mt-1">{pr.name} — {pr.weightKg}kg × {pr.reps}</p>
-          ))}
-        </div>
-      ) : (
-        <div>
-          <h2 className="text-2xl font-bold">Workout Complete!</h2>
-          <p className="text-muted-foreground mt-2">Great work.</p>
-        </div>
-      )}
-
-      <div className="bg-surface rounded-2xl ring-1 ring-black/5 p-5 text-left space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Summary</h3>
-        <div className="space-y-2 text-sm">
-          <Row k="Exercises" v={String(exercises.length)} />
-          <Row k="Sets completed" v={String(totalSets)} />
-          <Row k="Duration" v={`${Math.round(elapsedS / 60)} min`} />
-          <Row k="Total volume" v={`${totalVol.toLocaleString()} kg`} />
-        </div>
-      </div>
-
-      <button onClick={() => router.push("/dashboard")}
-        className="w-full bg-primary text-primary-foreground py-3.5 rounded-xl font-semibold text-sm">
-        Back to Dashboard
-      </button>
     </div>
   );
 }
