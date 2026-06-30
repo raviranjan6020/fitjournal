@@ -29,11 +29,11 @@ export default async function LoginPage({
         {/* Tab selector */}
         <div className="flex gap-1 bg-surface p-1 rounded-xl ring-1 ring-border">
           <a href="/login?mode=signin"
-            className={`flex-1 py-2.5 text-center text-xs font-semibold rounded-lg transition-colors ${!isSignUp ? "bg-foreground text-background" : "text-muted-foreground"}`}>
+            className={`flex-1 py-2.5 text-center text-xs font-semibold rounded-lg transition-colors ${!isSignUp ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
             Sign In
           </a>
           <a href="/login?mode=signup"
-            className={`flex-1 py-2.5 text-center text-xs font-semibold rounded-lg transition-colors ${isSignUp ? "bg-foreground text-background" : "text-muted-foreground"}`}>
+            className={`flex-1 py-2.5 text-center text-xs font-semibold rounded-lg transition-colors ${isSignUp ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
             Sign Up
           </a>
         </div>

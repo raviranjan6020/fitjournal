@@ -40,7 +40,7 @@ export function ProgressClient({ weightHistory, snapshot, sessionDates }: Props)
         <div className="flex gap-1 bg-surface p-1 rounded-xl ring-1 ring-black/5">
           {tabs.map(t => (
             <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-colors ${tab === t ? "bg-foreground text-background" : "text-muted-foreground"}`}>
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-colors ${tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
               {t}
             </button>
           ))}
