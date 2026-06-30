@@ -2,49 +2,162 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── FitJournal design tokens ─────────────────────────────────────── */
-/* Dark "Precision Athletic" = default. Light = .light class override. */
+/* ── FitJournal Multi-Theme System ───────────────────────────────── */
+/* Theme = color palette. Mode = dark/light. Both selectable by user. */
+/* Default: theme-lime + dark mode                                    */
 
-:root {
+/* ─── THEME: LIME ATHLETIC (default) ─────────────────────────────── */
+:root, .theme-lime {
   --radius: 0.875rem;
-
-  /* Dark theme (default) — neutral-950 bg, lime-400 primary */
-  --background:          oklch(0.17 0 0);       /* neutral-950   */
-  --surface:             oklch(0.235 0 0);      /* neutral-900   */
-  --foreground:          oklch(0.985 0 0);      /* near-white    */
-  --primary:             oklch(0.87 0.21 125);  /* lime-400      */
-  --primary-foreground:  oklch(0.17 0 0);
-  --muted:               oklch(0.28 0 0);
-  --muted-foreground:    oklch(0.62 0 0);
-  --accent:              oklch(0.28 0 0);
-  --accent-foreground:   oklch(0.87 0.21 125);
-  --border:              oklch(0.30 0 0);
-  --success:             oklch(0.82 0.18 135);
-  --success-foreground:  oklch(0.17 0 0);
-  --warning:             oklch(0.78 0.14 70);
-  --warning-foreground:  oklch(0.17 0 0);
-  --danger:              oklch(0.66 0.21 25);
-  --danger-foreground:   oklch(1 0 0);
+  /* Dark mode (default) */
+  --background:         #171717;
+  --surface:            #262626;
+  --foreground:         #fafafa;
+  --primary:            #a3e635;
+  --primary-foreground: #171717;
+  --muted:              #333333;
+  --muted-foreground:   #a3a3a3;
+  --accent:             #333333;
+  --accent-foreground:  #a3e635;
+  --border:             #404040;
+  --success:            #86efac;
+  --success-foreground: #171717;
+  --warning:            #fbbf24;
+  --warning-foreground: #171717;
+  --danger:             #f87171;
+  --danger-foreground:  #ffffff;
+}
+.theme-lime.light, .light .theme-lime, :root.light {
+  --background:         #f9fafb;
+  --surface:            #ffffff;
+  --foreground:         #111827;
+  --primary:            #65a30d;
+  --primary-foreground: #ffffff;
+  --muted:              #f3f4f6;
+  --muted-foreground:   #6b7280;
+  --accent:             #ecfccb;
+  --accent-foreground:  #3f6212;
+  --border:             #e5e7eb;
+  --success:            #16a34a;
+  --success-foreground: #ffffff;
+  --warning:            #d97706;
+  --warning-foreground: #ffffff;
+  --danger:             #dc2626;
+  --danger-foreground:  #ffffff;
 }
 
-/* Light theme */
-.light {
-  --background:          oklch(0.985 0.002 247); /* #F9FAFB       */
-  --surface:             oklch(1 0 0);            /* white         */
-  --foreground:          oklch(0.21 0.034 264);   /* #111827       */
-  --primary:             oklch(0.58 0.225 258);   /* #0066FF       */
-  --primary-foreground:  oklch(1 0 0);
-  --muted:               oklch(0.96 0.005 247);
-  --muted-foreground:    oklch(0.55 0.022 257);
-  --accent:              oklch(0.95 0.02 258);
-  --accent-foreground:   oklch(0.58 0.225 258);
-  --border:              oklch(0.92 0.008 255);
-  --success:             oklch(0.62 0.16 148);
-  --success-foreground:  oklch(1 0 0);
-  --warning:             oklch(0.66 0.16 55);
-  --warning-foreground:  oklch(1 0 0);
-  --danger:              oklch(0.58 0.22 27);
-  --danger-foreground:   oklch(1 0 0);
+/* ─── THEME: BLUE CLASSIC ────────────────────────────────────────── */
+.theme-blue {
+  --background:         #0f172a;
+  --surface:            #1e293b;
+  --foreground:         #f8fafc;
+  --primary:            #3b82f6;
+  --primary-foreground: #ffffff;
+  --muted:              #334155;
+  --muted-foreground:   #94a3b8;
+  --accent:             #1e3a5f;
+  --accent-foreground:  #60a5fa;
+  --border:             #334155;
+  --success:            #22c55e;
+  --success-foreground: #ffffff;
+  --warning:            #f59e0b;
+  --warning-foreground: #000000;
+  --danger:             #ef4444;
+  --danger-foreground:  #ffffff;
+}
+.theme-blue.light {
+  --background:         #f8fafc;
+  --surface:            #ffffff;
+  --foreground:         #0f172a;
+  --primary:            #2563eb;
+  --primary-foreground: #ffffff;
+  --muted:              #f1f5f9;
+  --muted-foreground:   #64748b;
+  --accent:             #dbeafe;
+  --accent-foreground:  #1e40af;
+  --border:             #e2e8f0;
+  --success:            #16a34a;
+  --success-foreground: #ffffff;
+  --warning:            #d97706;
+  --warning-foreground: #ffffff;
+  --danger:             #dc2626;
+  --danger-foreground:  #ffffff;
+}
+
+/* ─── THEME: PURPLE NIGHT ────────────────────────────────────────── */
+.theme-purple {
+  --background:         #1a1025;
+  --surface:            #2d1f3d;
+  --foreground:         #f5f3ff;
+  --primary:            #a78bfa;
+  --primary-foreground: #1a1025;
+  --muted:              #3b2d50;
+  --muted-foreground:   #a1a1aa;
+  --accent:             #3b2d50;
+  --accent-foreground:  #c4b5fd;
+  --border:             #4c3a63;
+  --success:            #86efac;
+  --success-foreground: #171717;
+  --warning:            #fcd34d;
+  --warning-foreground: #171717;
+  --danger:             #fb7185;
+  --danger-foreground:  #ffffff;
+}
+.theme-purple.light {
+  --background:         #faf5ff;
+  --surface:            #ffffff;
+  --foreground:         #1a1025;
+  --primary:            #7c3aed;
+  --primary-foreground: #ffffff;
+  --muted:              #f3e8ff;
+  --muted-foreground:   #6b7280;
+  --accent:             #ede9fe;
+  --accent-foreground:  #5b21b6;
+  --border:             #e9d5ff;
+  --success:            #16a34a;
+  --success-foreground: #ffffff;
+  --warning:            #d97706;
+  --warning-foreground: #ffffff;
+  --danger:             #dc2626;
+  --danger-foreground:  #ffffff;
+}
+
+/* ─── THEME: WARM ORANGE ─────────────────────────────────────────── */
+.theme-orange {
+  --background:         #1c1210;
+  --surface:            #2c1f1a;
+  --foreground:         #fef3c7;
+  --primary:            #fb923c;
+  --primary-foreground: #1c1210;
+  --muted:              #3d2a22;
+  --muted-foreground:   #a1a1aa;
+  --accent:             #3d2a22;
+  --accent-foreground:  #fdba74;
+  --border:             #4d3428;
+  --success:            #86efac;
+  --success-foreground: #171717;
+  --warning:            #fbbf24;
+  --warning-foreground: #171717;
+  --danger:             #f87171;
+  --danger-foreground:  #ffffff;
+}
+.theme-orange.light {
+  --background:         #fffbeb;
+  --surface:            #ffffff;
+  --foreground:         #1c1210;
+  --primary:            #ea580c;
+  --primary-foreground: #ffffff;
+  --muted:              #fff7ed;
+  --muted-foreground:   #6b7280;
+  --accent:             #ffedd5;
+  --accent-foreground:  #9a3412;
+  --border:             #fed7aa;
+  --success:            #16a34a;
+  --success-foreground: #ffffff;
+  --warning:            #d97706;
+  --warning-foreground: #ffffff;
+  --danger:             #dc2626;
+  --danger-foreground:  #ffffff;
 }
 
 @layer base {

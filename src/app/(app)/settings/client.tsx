@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, LogOut } from "lucide-react";
-import { useTheme } from "next-themes";
+import { useAppTheme, THEMES } from "@/components/layout/AppThemeProvider";
 
 type Profile = {
   name: string | null; email: string; heightCm: string | null;
@@ -165,7 +165,8 @@ export function SettingsClient({ profile }: { profile: Profile }) {
             </div>
             <div className="pt-1 space-y-2">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Appearance</p>
-              <ThemeToggleRow />
+              <ThemePicker />
+              <ModePicker />
             </div>
             <SaveBtn onClick={savePrefs} loading={saving} />
           </div>
@@ -221,16 +222,38 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 
 const inp = "w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none";
 
-function ThemeToggleRow() {
-  const { theme, setTheme } = useTheme();
+function ThemePicker() {
+  const { theme, setTheme } = useAppTheme();
+  return (
+    <div className="space-y-2 py-2">
+      <span className="text-sm font-medium">Color Theme</span>
+      <div className="flex gap-2">
+        {THEMES.map(t => (
+          <button key={t.id} onClick={() => setTheme(t.id)}
+            aria-label={t.label}
+            className={`flex-1 py-2.5 rounded-lg text-xs font-semibold flex flex-col items-center gap-1.5 transition-all ${
+              theme === t.id ? "ring-2 ring-offset-2 ring-offset-background" : "ring-1 ring-border"
+            }`}
+            style={{ ["--tw-ring-color" as string]: t.color }}>
+            <span className="size-5 rounded-full" style={{ backgroundColor: t.color }} />
+            <span className="text-muted-foreground">{t.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ModePicker() {
+  const { mode, setMode } = useAppTheme();
   return (
     <div className="flex items-center justify-between gap-3 py-2">
-      <span className="text-sm font-medium">Theme</span>
+      <span className="text-sm font-medium">Mode</span>
       <div className="flex gap-1 bg-muted p-1 rounded-lg">
-        {(["dark", "light"] as const).map(t => (
-          <button key={t} onClick={() => setTheme(t)}
-            className={`px-3 py-1 rounded-md text-xs font-semibold capitalize transition-colors ${theme === t ? "bg-surface text-foreground" : "text-muted-foreground"}`}>
-            {t}
+        {(["dark", "light"] as const).map(m => (
+          <button key={m} onClick={() => setMode(m)}
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold capitalize transition-colors ${mode === m ? "bg-surface text-foreground" : "text-muted-foreground"}`}>
+            {m}
           </button>
         ))}
       </div>
