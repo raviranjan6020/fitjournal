@@ -40,7 +40,11 @@ export default async function WorkoutDetailPage({
               </p>
             </div>
           </div>
-          <DeleteWorkoutButton sessionId={workout.id} redirectTo="/workouts" />
+          <DeleteWorkoutButton
+            sessionId={workout.id}
+            workoutName={workout.name ?? workout.workoutType.replace("_", " ")}
+            redirectTo="/workouts"
+          />
         </div>
       </header>
 
