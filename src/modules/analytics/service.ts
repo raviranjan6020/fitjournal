@@ -4,13 +4,14 @@
  */
 import { db } from "@/db";
 import { analyticsSnapshots, nutritionLogs, sleepLogs } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, and, gte, desc } from "drizzle-orm";
 import { isoDate, addDays } from "@/lib/utils";
 import { buildOverloadSignals } from "./engines/overload";
 import { buildVolumeSignals } from "./engines/volume";
 import { buildConsistencySignal } from "./engines/consistency";
 import { buildGoalProgressSignal } from "./engines/goal-progress";
 import { buildPlateauSignals } from "./engines/plateau";
+import { buildNewPRs } from "./engines/new-prs";
 import { getPreferences } from "@/modules/users/service";
 
 export async function getOrBuildSnapshot(userId: string) {
@@ -32,19 +33,21 @@ export async function getOrBuildSnapshot(userId: string) {
 }
 
 export async function buildSnapshot(userId: string) {
-  const today      = isoDate();
-  const weekStart  = getMondayOfWeek(today);
-  const sevenAgo   = addDays(today, -7);
+  const today       = isoDate();
+  const weekStart   = getMondayOfWeek(today);
+  const sevenAgo    = addDays(today, -7);
+  const overloadSince = addDays(today, -42); // 6-week lookback — enough to find 2 sessions per exercise, matches plateau engine
 
   // Run all engines in parallel
-  const [overload, volume, consistency, goalProgress, plateaus, nutrition, sleep] = await Promise.all([
-    buildOverloadSignals(userId),
+  const [overload, volume, consistency, goalProgress, plateaus, nutrition, sleep, newPrs] = await Promise.all([
+    buildOverloadSignals(userId, overloadSince),
     buildVolumeSignals(userId, weekStart),
     buildConsistencySignal(userId),
     buildGoalProgressSignal(userId),
     buildPlateauSignals(userId),
     getNutritionSummary(userId, sevenAgo),
     getSleepSummary(userId, sevenAgo),
+    buildNewPRs(userId, sevenAgo),
   ]);
 
   const content = {
@@ -55,7 +58,7 @@ export async function buildSnapshot(userId: string) {
     strength:    overload,
     volume,
     plateaus,
-    new_prs:     [], // PRs collected at set-log time, not recomputed here
+    new_prs:     newPrs,
   };
 
   const [snapshot] = await db
@@ -72,7 +75,7 @@ export async function buildSnapshot(userId: string) {
 
 // ── Nutrition 7-day summary ───────────────────────────────────────────────────
 
-async function getNutritionSummary(userId: string, _since: string) {
+async function getNutritionSummary(userId: string, since: string) {
   const prefs = await getPreferences(userId);
   const proteinTarget = Number(prefs?.proteinTargetG ?? 134);
   const waterTarget   = Number(prefs?.waterTargetL   ?? 2.5);
@@ -80,7 +83,7 @@ async function getNutritionSummary(userId: string, _since: string) {
   const rows = await db
     .select({ proteinG: nutritionLogs.proteinG, waterL: nutritionLogs.waterL })
     .from(nutritionLogs)
-    .where(eq(nutritionLogs.userId, userId));
+    .where(and(eq(nutritionLogs.userId, userId), gte(nutritionLogs.date, since)));
 
   const proteinEntries = rows.filter(r => r.proteinG !== null).map(r => r.proteinG!);
   const waterEntries   = rows.filter(r => r.waterL   !== null).map(r => Number(r.waterL));
@@ -106,11 +109,11 @@ async function getNutritionSummary(userId: string, _since: string) {
   };
 }
 
-async function getSleepSummary(userId: string, _since: string) {
+async function getSleepSummary(userId: string, since: string) {
   const rows = await db
     .select({ hours: sleepLogs.hours })
     .from(sleepLogs)
-    .where(eq(sleepLogs.userId, userId));
+    .where(and(eq(sleepLogs.userId, userId), gte(sleepLogs.date, since)));
 
   const vals = rows.filter(r => r.hours !== null).map(r => Number(r.hours));
   const avg  = vals.length ? mean(vals) : null;

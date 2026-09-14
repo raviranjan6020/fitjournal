@@ -3,14 +3,12 @@ import { users, usersGoals, usersPreferences } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
 export async function getUserProfile(userId: string) {
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const [[user], [prefs], [goal]] = await Promise.all([
+    db.select().from(users).where(eq(users.id, userId)).limit(1),
+    db.select().from(usersPreferences).where(eq(usersPreferences.userId, userId)).limit(1),
+    db.select().from(usersGoals).where(and(eq(usersGoals.userId, userId), eq(usersGoals.isActive, true))).limit(1),
+  ]);
   if (!user) return null;
-  const [prefs] = await db.select().from(usersPreferences).where(eq(usersPreferences.userId, userId)).limit(1);
-  const [goal] = await db
-    .select()
-    .from(usersGoals)
-    .where(and(eq(usersGoals.userId, userId), eq(usersGoals.isActive, true)))
-    .limit(1);
   return { ...user, preferences: prefs ?? null, goal: goal ?? null };
 }
 

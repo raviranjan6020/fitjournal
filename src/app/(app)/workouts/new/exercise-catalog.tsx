@@ -51,8 +51,8 @@ export function ExerciseCatalog({ added, onAdd, onClose }: Props) {
 
       {/* Sheet */}
       <div
-        className="relative mt-auto w-full bg-background rounded-t-3xl flex flex-col"
-        style={{ maxHeight: "92dvh" }}
+        className="relative mt-auto w-full max-w-md mx-auto bg-background rounded-t-3xl flex flex-col"
+        style={{ maxHeight: "80dvh" }}
         onClick={e => e.stopPropagation()}
       >
         {/* Handle */}
