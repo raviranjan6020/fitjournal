@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Search, X, Check } from "lucide-react";
 
 interface Exercise { id: string; name: string; muscleGroups: string[]; equipment: string | null }
@@ -8,22 +8,16 @@ interface Exercise { id: string; name: string; muscleGroups: string[]; equipment
 const MUSCLES = ["chest","back","legs","shoulders","biceps","triceps","core","cardio","glutes","hamstrings","quads","calves"];
 
 interface Props {
+  exercises: Exercise[];
   added: string[];
   onAdd: (exercises: { id: string; name: string }[]) => void;
   onClose: () => void;
 }
 
-export function ExerciseCatalog({ added, onAdd, onClose }: Props) {
-  const [exercises, setExercises] = useState<Exercise[]>([]);
+export function ExerciseCatalog({ exercises, added, onAdd, onClose }: Props) {
   const [q,         setQ]         = useState("");
   const [muscle,    setMuscle]    = useState("");
   const [selected,  setSelected]  = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    fetch("/api/exercises")
-      .then(r => r.json())
-      .then(setExercises);
-  }, []);
 
   const filtered = exercises.filter(e => {
     const mQ = !q || e.name.toLowerCase().includes(q.toLowerCase());

@@ -7,7 +7,7 @@
  */
 import { db } from "@/db";
 import { workoutSessions, workoutExerciseLogs, workoutSets, exerciseLibrary } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, gte } from "drizzle-orm";
 
 export interface NewPRSignal {
   exercise:  string; // slug
@@ -19,7 +19,20 @@ export interface NewPRSignal {
 
 function e1rm(kg: number, reps: number) { return kg * (1 + reps / 30); }
 
+// PR status is relative to all prior history, so we can't filter the query
+// to just the `since` window — a set from last week is only a PR if it beats
+// everything before it. But "everything" doesn't need to mean literally
+// unbounded: capping at 2 years covers effectively all real training
+// histories while preventing the query from growing forever for long-time
+// users. Without this, buildNewPRs was the single heaviest query in the
+// snapshot build (a 4-table join over the user's entire lifetime of sets).
+const MAX_HISTORY_DAYS = 730;
+
 export async function buildNewPRs(userId: string, since: string): Promise<NewPRSignal[]> {
+  const historyStart = new Date();
+  historyStart.setDate(historyStart.getDate() - MAX_HISTORY_DAYS);
+  const historyStartStr = historyStart.toISOString().slice(0, 10);
+
   const rows = await db
     .select({
       exerciseId: workoutExerciseLogs.exerciseId,
@@ -33,7 +46,11 @@ export async function buildNewPRs(userId: string, since: string): Promise<NewPRS
     .innerJoin(workoutExerciseLogs, eq(workoutSets.exerciseLogId, workoutExerciseLogs.id))
     .innerJoin(workoutSessions,     eq(workoutExerciseLogs.sessionId, workoutSessions.id))
     .innerJoin(exerciseLibrary,     eq(workoutExerciseLogs.exerciseId, exerciseLibrary.id))
-    .where(and(eq(workoutSessions.userId, userId), eq(workoutSets.isWarmup, false)));
+    .where(and(
+      eq(workoutSessions.userId, userId),
+      eq(workoutSets.isWarmup, false),
+      gte(workoutSessions.date, historyStartStr),
+    ));
 
   if (!rows.length) return [];
 

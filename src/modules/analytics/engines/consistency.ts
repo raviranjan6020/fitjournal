@@ -5,7 +5,9 @@
  */
 import { db } from "@/db";
 import { workoutSessions, usersPreferences } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, gte } from "drizzle-orm";
+
+type UserPreferences = typeof usersPreferences.$inferSelect;
 
 export interface ConsistencySignal {
   workouts_this_week: number;
@@ -15,7 +17,13 @@ export interface ConsistencySignal {
   status: "good" | "low";
 }
 
-export async function buildConsistencySignal(userId: string): Promise<ConsistencySignal> {
+// Longest streak this engine will ever report — bounds the session query so
+// it doesn't grow unboundedly for long-time users. A real streak longer than
+// this is exceedingly rare, and reporting "365+ days" vs the true count
+// doesn't change what the user should do differently.
+const MAX_STREAK_DAYS = 365;
+
+export async function buildConsistencySignal(userId: string, prefs: UserPreferences | null): Promise<ConsistencySignal> {
   const today = new Date().toISOString().slice(0, 10);
 
   // Get Monday of current week
@@ -28,19 +36,20 @@ export async function buildConsistencySignal(userId: string): Promise<Consistenc
   fourWeeksAgo.setUTCDate(fourWeeksAgo.getUTCDate() - 28);
   const window4w = fourWeeksAgo.toISOString().slice(0, 10);
 
-  const [prefs] = await db
-    .select({ weeklyWorkoutTarget: usersPreferences.weeklyWorkoutTarget })
-    .from(usersPreferences)
-    .where(eq(usersPreferences.userId, userId))
-    .limit(1);
-
-  const target = Number(prefs?.weeklyWorkoutTarget ?? 4);
+  // Query window covers everything this function needs: the 4-week average
+  // and a streak up to MAX_STREAK_DAYS. Previously fetched every session the
+  // user had ever logged with no date filter at all.
+  const queryStart = new Date(today + "T12:00:00Z");
+  queryStart.setUTCDate(queryStart.getUTCDate() - MAX_STREAK_DAYS);
+  const queryStartStr = queryStart.toISOString().slice(0, 10);
 
   const sessions = await db
     .select({ date: workoutSessions.date })
     .from(workoutSessions)
-    .where(eq(workoutSessions.userId, userId))
+    .where(and(eq(workoutSessions.userId, userId), gte(workoutSessions.date, queryStartStr)))
     .orderBy(workoutSessions.date);
+
+  const target = Number(prefs?.weeklyWorkoutTarget ?? 4);
 
   const dates = sessions.map(s => s.date);
 

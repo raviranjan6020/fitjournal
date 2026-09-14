@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { workoutSessions, workoutExerciseLogs, workoutSets, exerciseLibrary } from "@/db/schema";
-import { eq, and, desc, asc } from "drizzle-orm";
+import { eq, and, desc, asc, gte } from "drizzle-orm";
 import Link from "next/link";
 import { ChevronLeft, TrendingUp } from "lucide-react";
 import { notFound } from "next/navigation";
@@ -11,24 +11,41 @@ export default async function ExerciseHistoryPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const session = await auth();
   const { slug } = await params;
+
+  // auth() and the exercise lookup are independent — auth doesn't need the
+  // exercise, and the exercise lookup doesn't need the user — so run them
+  // together instead of one after another.
+  const [session, [exercise]] = await Promise.all([
+    auth(),
+    db
+      .select({ id: exerciseLibrary.id, name: exerciseLibrary.name, slug: exerciseLibrary.slug, muscleGroups: exerciseLibrary.muscleGroups })
+      .from(exerciseLibrary)
+      .where(eq(exerciseLibrary.slug, slug))
+      .limit(1),
+  ]);
+
   const userId = session!.user!.id as string;
-
-  const [exercise] = await db
-    .select({ id: exerciseLibrary.id, name: exerciseLibrary.name, slug: exerciseLibrary.slug, muscleGroups: exerciseLibrary.muscleGroups })
-    .from(exerciseLibrary)
-    .where(eq(exerciseLibrary.slug, slug))
-    .limit(1);
-
   if (!exercise) notFound();
+
+  // Bounded lookback — this previously fetched every non-warmup set the user
+  // has ever logged for this exercise with no limit, growing linearly with
+  // usage. 2 years covers effectively all real training histories.
+  const historyStart = new Date();
+  historyStart.setDate(historyStart.getDate() - 730);
+  const historyStartStr = historyStart.toISOString().slice(0, 10);
 
   const rows = await db
     .select({ sessionId: workoutSessions.id, sessionDate: workoutSessions.date, weightKg: workoutSets.weightKg, reps: workoutSets.reps })
     .from(workoutSets)
     .innerJoin(workoutExerciseLogs, eq(workoutSets.exerciseLogId, workoutExerciseLogs.id))
     .innerJoin(workoutSessions, eq(workoutExerciseLogs.sessionId, workoutSessions.id))
-    .where(and(eq(workoutSessions.userId, userId), eq(workoutExerciseLogs.exerciseId, exercise.id), eq(workoutSets.isWarmup, false)))
+    .where(and(
+      eq(workoutSessions.userId, userId),
+      eq(workoutExerciseLogs.exerciseId, exercise.id),
+      eq(workoutSets.isWarmup, false),
+      gte(workoutSessions.date, historyStartStr),
+    ))
     .orderBy(desc(workoutSessions.date), asc(workoutSets.setNumber));
 
   function e1rm(kg: number, reps: number) { return kg * (1 + reps / 30); }

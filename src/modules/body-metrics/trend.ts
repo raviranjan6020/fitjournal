@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { bodyMetrics } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, gte } from "drizzle-orm";
 import { THRESHOLDS } from "@/lib/constants";
 import type { GoalType } from "@/lib/constants";
 
@@ -22,11 +22,11 @@ export async function computeWeightTrend(userId: string, goalType: GoalType | nu
   const rows = await db
     .select({ date: bodyMetrics.date, weightKg: bodyMetrics.weightKg })
     .from(bodyMetrics)
-    .where(eq(bodyMetrics.userId, userId))
+    .where(and(eq(bodyMetrics.userId, userId), gte(bodyMetrics.date, cutoffStr)))
     .orderBy(bodyMetrics.date);
 
   const entries = rows
-    .filter(r => r.weightKg && Number(r.weightKg) > 0 && r.date >= cutoffStr)
+    .filter(r => r.weightKg && Number(r.weightKg) > 0)
     .map(r => ({ date: r.date, weightKg: Number(r.weightKg) }));
 
   const noData: TrendResult = { status: "no_data", recent_avg_kg: null, kg_per_week: null, pct_per_week: null, data_points: entries.length, message: "Log weight for 2+ weeks to see your trend." };

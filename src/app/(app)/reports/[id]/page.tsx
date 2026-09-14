@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { getReport, markReportRead } from "@/modules/reporting/service";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { ChevronLeft, TrendingUp, AlertTriangle, MessageSquare } from "lucide-react";
 
 export default async function ReportDetailPage({
@@ -14,7 +15,10 @@ export default async function ReportDetailPage({
   const report  = await getReport(session!.user!.id as string, id);
   if (!report) notFound();
 
-  if (!report.isRead) await markReportRead(session!.user!.id as string, id);
+  // Runs after the response is sent, not blocking the render — but still
+  // guaranteed to run to completion by Next.js/Vercel, unlike a bare
+  // unawaited promise which risks the function terminating mid-write.
+  if (!report.isRead) after(() => markReportRead(session!.user!.id as string, id));
 
   const c = report.content as {
     period_label: string; headline: string;

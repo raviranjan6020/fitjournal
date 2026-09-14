@@ -40,33 +40,39 @@ export async function generateWeeklyReport(userId: string, periodStart: string, 
   // rejects snapshots left over from an unrelated, much later period.
   const snapshotCutoff = addDays(periodEnd, 3);
 
-  const [current] = await db
-    .select()
-    .from(analyticsSnapshots)
-    .where(
-      and(
-        eq(analyticsSnapshots.userId, userId),
-        lte(analyticsSnapshots.snapshotDate, snapshotCutoff),
-        gte(analyticsSnapshots.snapshotDate, periodStart),
-      ),
-    )
-    .orderBy(desc(analyticsSnapshots.snapshotDate))
-    .limit(1);
+  // These two queries are independent (both keyed off periodStart/periodEnd,
+  // neither depends on the other's result), so run them together. In the
+  // rare case current turns out to be missing, previous was fetched
+  // needlessly — a small tradeoff for saving a full round trip on the common
+  // path where current does exist.
+  const [[current], [previous]] = await Promise.all([
+    db
+      .select()
+      .from(analyticsSnapshots)
+      .where(
+        and(
+          eq(analyticsSnapshots.userId, userId),
+          lte(analyticsSnapshots.snapshotDate, snapshotCutoff),
+          gte(analyticsSnapshots.snapshotDate, periodStart),
+        ),
+      )
+      .orderBy(desc(analyticsSnapshots.snapshotDate))
+      .limit(1),
+    // Previous snapshot (for weight delta) — most recent snapshot before this period
+    db
+      .select()
+      .from(analyticsSnapshots)
+      .where(
+        and(
+          eq(analyticsSnapshots.userId, userId),
+          lt(analyticsSnapshots.snapshotDate, periodStart),
+        ),
+      )
+      .orderBy(desc(analyticsSnapshots.snapshotDate))
+      .limit(1),
+  ]);
 
   if (!current) return null;
-
-  // Previous snapshot (for weight delta) — most recent snapshot before this period
-  const [previous] = await db
-    .select()
-    .from(analyticsSnapshots)
-    .where(
-      and(
-        eq(analyticsSnapshots.userId, userId),
-        lt(analyticsSnapshots.snapshotDate, periodStart),
-      ),
-    )
-    .orderBy(desc(analyticsSnapshots.snapshotDate))
-    .limit(1);
 
   const content = buildWeeklyReport(
     current.content as Parameters<typeof buildWeeklyReport>[0],
