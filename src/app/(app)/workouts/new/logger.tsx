@@ -24,7 +24,9 @@ type Template = {
 
 const WORKOUT_TYPES = ["push","pull","legs","upper","lower","full_body","custom"] as const;
 
-export function WorkoutLogger() {
+interface Exercise { id: string; name: string; muscleGroups: string[]; equipment: string | null }
+
+export function WorkoutLogger({ initialTemplates, exerciseLibrary }: { initialTemplates: Template[]; exerciseLibrary: Exercise[] }) {
   const router = useRouter();
   const [stage,     setStage]     = useState<Stage>("setup");
   const [type,      setType]      = useState("push");
@@ -35,20 +37,12 @@ export function WorkoutLogger() {
   const [elapsedS,  setElapsed]   = useState(0);
   const [newPRs,    setNewPRs]    = useState<{ name: string; weightKg: number; reps: number }[]>([]);
   const [loading,   setLoading]   = useState(false);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [templates, setTemplates] = useState<Template[]>(initialTemplates);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateName,   setTemplateName]   = useState("");
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    fetch("/api/workouts/templates")
-      .then(r => r.json())
-      .then(setTemplates)
-      .finally(() => setTemplatesLoading(false));
-  }, []);
 
   useEffect(() => {
     if (stage === "active") {
@@ -297,7 +291,7 @@ export function WorkoutLogger() {
         </div>
       </header>
       <div className="max-w-md mx-auto px-5 py-6 space-y-6">
-        {!templatesLoading && templates.length > 0 && (
+        {templates.length > 0 && (
           <Field label="Start from a saved template">
             <div className="space-y-2">
               {templates.map(t => (
@@ -460,6 +454,7 @@ export function WorkoutLogger() {
 
       {catalog && (
         <ExerciseCatalog
+          exercises={exerciseLibrary}
           added={exercises.map(e => e.exerciseId)}
           onAdd={addExercisesFromCatalog}
           onClose={() => setCatalog(false)}

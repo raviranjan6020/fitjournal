@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { workoutSessions, workoutExerciseLogs, workoutSets, exerciseLibrary } from "@/db/schema";
-import { eq, and, desc, asc } from "drizzle-orm";
+import { eq, and, desc, asc, gte } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 function e1rm(kg: number, reps: number) { return kg * (1 + reps / 30); }
@@ -10,20 +10,29 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
   const { slug } = await params;
-  const userId   = session.user.id as string;
 
-  // Find exercise by slug
-  const [exercise] = await db
-    .select({ id: exerciseLibrary.id, name: exerciseLibrary.name, slug: exerciseLibrary.slug, muscleGroups: exerciseLibrary.muscleGroups })
-    .from(exerciseLibrary)
-    .where(eq(exerciseLibrary.slug, slug))
-    .limit(1);
+  // auth() and the exercise lookup are independent, so run them together
+  // rather than blocking the exercise lookup on auth completing first.
+  const [session, [exercise]] = await Promise.all([
+    auth(),
+    db
+      .select({ id: exerciseLibrary.id, name: exerciseLibrary.name, slug: exerciseLibrary.slug, muscleGroups: exerciseLibrary.muscleGroups })
+      .from(exerciseLibrary)
+      .where(eq(exerciseLibrary.slug, slug))
+      .limit(1),
+  ]);
+
+  if (!session?.user?.id) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const userId = session.user.id as string;
 
   if (!exercise) return NextResponse.json({ error: "not found" }, { status: 404 });
+
+  // Bounded lookback — previously fetched every non-warmup set the user has
+  // ever logged for this exercise with no limit.
+  const historyStart = new Date();
+  historyStart.setDate(historyStart.getDate() - 730);
+  const historyStartStr = historyStart.toISOString().slice(0, 10);
 
   // All working sets for this user + exercise
   const rows = await db
@@ -42,6 +51,7 @@ export async function GET(
         eq(workoutSessions.userId, userId),
         eq(workoutExerciseLogs.exerciseId, exercise.id),
         eq(workoutSets.isWarmup, false),
+        gte(workoutSessions.date, historyStartStr),
       ),
     )
     .orderBy(desc(workoutSessions.date), asc(workoutSets.setNumber));

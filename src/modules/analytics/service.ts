@@ -13,6 +13,9 @@ import { buildGoalProgressSignal } from "./engines/goal-progress";
 import { buildPlateauSignals } from "./engines/plateau";
 import { buildNewPRs } from "./engines/new-prs";
 import { getPreferences } from "@/modules/users/service";
+import type { usersPreferences as UsersPreferencesTable } from "@/db/schema";
+
+type UserPreferences = typeof UsersPreferencesTable.$inferSelect;
 
 export async function getOrBuildSnapshot(userId: string) {
   const today = isoDate();
@@ -38,14 +41,19 @@ export async function buildSnapshot(userId: string) {
   const sevenAgo    = addDays(today, -7);
   const overloadSince = addDays(today, -42); // 6-week lookback — enough to find 2 sessions per exercise, matches plateau engine
 
+  // Fetched once and passed to both consistency + nutrition, which
+  // previously each queried usersPreferences independently — same table,
+  // same row, fetched twice on every snapshot build.
+  const prefs = await getPreferences(userId);
+
   // Run all engines in parallel
   const [overload, volume, consistency, goalProgress, plateaus, nutrition, sleep, newPrs] = await Promise.all([
     buildOverloadSignals(userId, overloadSince),
     buildVolumeSignals(userId, weekStart),
-    buildConsistencySignal(userId),
+    buildConsistencySignal(userId, prefs),
     buildGoalProgressSignal(userId),
     buildPlateauSignals(userId),
-    getNutritionSummary(userId, sevenAgo),
+    getNutritionSummary(userId, sevenAgo, prefs),
     getSleepSummary(userId, sevenAgo),
     buildNewPRs(userId, sevenAgo),
   ]);
@@ -75,8 +83,7 @@ export async function buildSnapshot(userId: string) {
 
 // ── Nutrition 7-day summary ───────────────────────────────────────────────────
 
-async function getNutritionSummary(userId: string, since: string) {
-  const prefs = await getPreferences(userId);
+async function getNutritionSummary(userId: string, since: string, prefs: UserPreferences | null) {
   const proteinTarget = Number(prefs?.proteinTargetG ?? 134);
   const waterTarget   = Number(prefs?.waterTargetL   ?? 2.5);
 
