@@ -5,6 +5,13 @@ import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { ChevronLeft, TrendingUp, AlertTriangle, MessageSquare } from "lucide-react";
 
+const STRENGTH_STATUS_LABEL: Record<string, string> = {
+  improving: "Improving",
+  stalled:   "Stalled",
+  regressed: "Down",
+  no_data:   "Needs another session",
+};
+
 export default async function ReportDetailPage({
   params,
 }: {
@@ -98,7 +105,11 @@ export default async function ReportDetailPage({
                     s.status === "improving" ? "text-success" : s.status === "plateau" ? "text-danger" : "text-warning"
                   }`}>
                     {s.status === "improving" ? <TrendingUp className="size-3.5" /> : <AlertTriangle className="size-3.5" />}
-                    {s.change_kg ? `${s.change_kg > 0 ? "+" : ""}${s.change_kg}kg` : s.weeks_stalled ? `Stalled ${s.weeks_stalled}w` : s.status}
+                    {s.change_kg
+                      ? `${s.change_kg > 0 ? "+" : ""}${s.change_kg}kg`
+                      : s.weeks_stalled
+                        ? `Stalled ${s.weeks_stalled}w`
+                        : STRENGTH_STATUS_LABEL[s.status] ?? s.status}
                   </span>
                 </div>
               ))}

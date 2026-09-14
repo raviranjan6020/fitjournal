@@ -5,7 +5,7 @@ import { THRESHOLDS } from "@/lib/constants";
 import type { GoalType } from "@/lib/constants";
 
 export interface TrendResult {
-  status: "on_track" | "too_fast" | "too_slow" | "gaining" | "drifting" | "no_data";
+  status: "on_track" | "too_fast" | "too_slow" | "gaining" | "drifting" | "no_data" | "collecting";
   recent_avg_kg: number | null;
   kg_per_week: number | null;
   pct_per_week: number | null;
@@ -29,14 +29,27 @@ export async function computeWeightTrend(userId: string, goalType: GoalType | nu
     .filter(r => r.weightKg && Number(r.weightKg) > 0)
     .map(r => ({ date: r.date, weightKg: Number(r.weightKg) }));
 
-  const noData: TrendResult = { status: "no_data", recent_avg_kg: null, kg_per_week: null, pct_per_week: null, data_points: entries.length, message: "Log weight for 2+ weeks to see your trend." };
+  // "no_data" only when literally nothing has been logged. Any entries at
+  // all but not enough yet for a trend is a different, less alarming state
+  // ("collecting") — these previously collapsed to the same status and
+  // message, which reads as contradictory next to a chart that clearly has
+  // points on it.
+  function collecting(): TrendResult {
+    const remaining = Math.max(0, THRESHOLDS.coldStart.minWeighIns - entries.length);
+    const message = entries.length === 0
+      ? "Log your weight to start tracking your trend."
+      : remaining > 0
+        ? `${entries.length} weigh-in${entries.length === 1 ? "" : "s"} logged. Log ${remaining} more to see your trend.`
+        : "A few more days of logging and your trend will show here.";
+    return { status: entries.length === 0 ? "no_data" : "collecting", recent_avg_kg: null, kg_per_week: null, pct_per_week: null, data_points: entries.length, message };
+  }
 
-  if (entries.length < THRESHOLDS.coldStart.minWeighIns) return noData;
+  if (entries.length < THRESHOLDS.coldStart.minWeighIns) return collecting();
 
   const first = entries[0].date;
   const last  = entries[entries.length - 1].date;
   const spanDays = (new Date(last).getTime() - new Date(first).getTime()) / 86400000;
-  if (spanDays < THRESHOLDS.coldStart.minDays) return noData;
+  if (spanDays < THRESHOLDS.coldStart.minDays) return collecting();
 
   const today = last;
 
@@ -44,7 +57,7 @@ export async function computeWeightTrend(userId: string, goalType: GoalType | nu
   const recent   = entries.filter(e => e.date >  offsetDate(today, -7)).map(e => e.weightKg);
   const baseline = entries.filter(e => e.date >  offsetDate(today, -21) && e.date <= offsetDate(today, -14)).map(e => e.weightKg);
 
-  if (!recent.length || !baseline.length) return noData;
+  if (!recent.length || !baseline.length) return collecting();
 
   const recentAvg   = mean(recent);
   const baselineAvg = mean(baseline);
@@ -78,10 +91,10 @@ function classifyTrend(kgPerWeek: number, pctPerWeek: number, goal: GoalType | n
 function buildMessage(status: TrendResult["status"], kgPerWeek: number, recentAvg: number, goal: GoalType | null): string {
   const dir = kgPerWeek >= 0 ? `+${round(kgPerWeek, 2)}` : `${round(kgPerWeek, 2)}`;
   switch (status) {
-    case "on_track":  return `${dir}kg/week — on track for ${goal ?? "your goal"}.`;
-    case "too_fast":  return kgPerWeek < 0 ? `Losing ${Math.abs(round(kgPerWeek,2))}kg/week — too fast, risk losing muscle.` : `Gaining ${round(kgPerWeek,2)}kg/week — too fast, excess fat likely.`;
-    case "too_slow":  return `${dir}kg/week — progress slower than target.`;
-    case "gaining":   return `Weight trending up (+${round(kgPerWeek,2)}kg/week) — wrong direction for fat loss.`;
+    case "on_track":  return `${dir}kg/week, on track for ${goal ?? "your goal"}.`;
+    case "too_fast":  return kgPerWeek < 0 ? `Losing ${Math.abs(round(kgPerWeek,2))}kg/week, that's too fast and risks losing muscle.` : `Gaining ${round(kgPerWeek,2)}kg/week, that's too fast and likely excess fat.`;
+    case "too_slow":  return `${dir}kg/week, slower than your target pace.`;
+    case "gaining":   return `Weight trending up (+${round(kgPerWeek,2)}kg/week), the wrong direction for fat loss.`;
     case "drifting":  return `Weight drifting (${dir}kg/week). Aim to stay within ±0.2%/week.`;
     default:          return "Not enough data yet.";
   }
