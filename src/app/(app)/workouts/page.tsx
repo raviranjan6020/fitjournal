@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { listSessions } from "@/modules/workouts/service";
 import Link from "next/link";
+import { WorkoutsList } from "./_components/workouts-list";
 
 export default async function WorkoutsPage() {
   const session  = await auth();
@@ -16,7 +17,7 @@ export default async function WorkoutsPage() {
         </div>
       </header>
 
-      <div className="max-w-md mx-auto px-5 py-5 space-y-3">
+      <div className="max-w-md mx-auto px-5 py-5">
         {sessions.length === 0 ? (
           <div className="text-center py-16 space-y-3">
             <p className="text-base font-semibold">No workouts logged yet</p>
@@ -27,19 +28,13 @@ export default async function WorkoutsPage() {
             </Link>
           </div>
         ) : (
-          sessions.map(s => (
-            <div key={s.id} className="bg-surface p-4 rounded-2xl ring-1 ring-black/5">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="font-semibold capitalize">{s.name ?? s.workoutType.replace("_", " ")}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{s.date}{s.durationMin ? ` · ${s.durationMin} min` : ""}</p>
-                </div>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted px-2 py-1 rounded-lg">
-                  {s.workoutType.replace("_", " ")}
-                </span>
-              </div>
-            </div>
-          ))
+          <WorkoutsList initialSessions={sessions.map(s => ({
+            id: s.id,
+            name: s.name,
+            workoutType: s.workoutType,
+            date: s.date,
+            durationMin: s.durationMin,
+          }))} />
         )}
       </div>
     </div>
