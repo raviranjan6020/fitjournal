@@ -176,7 +176,7 @@ export function SettingsClient({ profile }: { profile: Profile }) {
         <button
           onClick={async () => {
             await fetch("/api/auth/signout", { method: "POST" });
-            router.push("/login");
+            router.push("/");
           }}
           className="w-full bg-danger/10 text-danger py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-danger/20 transition"
         >

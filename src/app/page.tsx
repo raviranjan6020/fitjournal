@@ -30,14 +30,14 @@ export default async function RootPage() {
       {/* Hero */}
       <section className="max-w-4xl mx-auto px-5 pt-16 pb-20 text-center">
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-tight">
-          Most apps log your workout.
+          You&apos;ve logged 40 workouts.
           <br />
-          <span className="text-primary">FitJournal tells you if it&apos;s working.</span>
+          <span className="text-primary">Are you actually getting stronger?</span>
         </h1>
         <p className="mt-5 text-base sm:text-lg text-muted-foreground max-w-xl mx-auto">
-          Track workouts, weight, sleep, and nutrition in one place — and get a plain-English
-          weekly answer to the question every tracker skips: is your plan actually producing
-          results?
+          Most fitness apps are just a spreadsheet with better fonts. FitJournal looks at your
+          training, sleep, and food together and tells you straight up what&apos;s working and
+          what&apos;s stuck.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <Link href="/login?mode=signup"
@@ -49,7 +49,7 @@ export default async function RootPage() {
             Sign in
           </Link>
         </div>
-        <p className="mt-4 text-xs text-muted-foreground">No credit card. Sign in with Google in seconds.</p>
+        <p className="mt-4 text-xs text-muted-foreground">No credit card, just sign in with Google.</p>
       </section>
 
       {/* Features */}
@@ -57,23 +57,23 @@ export default async function RootPage() {
         <div className="grid sm:grid-cols-2 gap-4">
           <FeatureCard
             icon={Dumbbell}
-            title="Fast workout logging"
-            description="Log sets, reps, and RPE in seconds. Automatic PR detection and estimated 1RM on every lift."
+            title="Logging that doesn't slow you down"
+            description="Weight, reps, RPE, done. It catches your PRs automatically so you don't have to remember what you lifted last time."
           />
           <FeatureCard
             icon={TrendingUp}
-            title="Plateau detection, not guesswork"
-            description="A deterministic engine flags stalled lifts, low training volume, and off-track weight trends — before you notice on your own."
+            title="It notices when a lift stalls"
+            description="Not a vibe. An engine watches your numbers week over week and flags a plateau, low volume, or a weight trend headed the wrong way."
           />
           <FeatureCard
             icon={Sparkles}
-            title="AI Coach grounded in your data"
-            description="Ask why a lift stalled or if you're eating enough protein. Every answer is drawn from your own logged numbers — never invented."
+            title="Ask it anything about your training"
+            description="Why did my squat stop moving? Am I eating enough protein? It answers from your actual logs, it doesn&apos;t make things up."
           />
           <FeatureCard
             icon={BellRing}
-            title="Weekly report, not daily noise"
-            description="One clear summary a week: what improved, what stalled, and exactly what to change next."
+            title="One report a week, not a notification every hour"
+            description="A short weekly summary: what improved, what stalled, and one thing to change next week."
           />
         </div>
       </section>
@@ -82,9 +82,9 @@ export default async function RootPage() {
       <section className="max-w-4xl mx-auto px-5 pb-20">
         <h2 className="text-2xl font-bold text-center mb-10">How it works</h2>
         <div className="grid sm:grid-cols-3 gap-6">
-          <Step number={1} title="Log your training" description="Workouts, body weight, sleep, and nutrition — as much or as little as you track today." />
-          <Step number={2} title="Engines do the analysis" description="Plateau, overload, volume, consistency, and goal-progress signals are computed from your real history, not averages." />
-          <Step number={3} title="Get a straight answer" description="A weekly report and an AI coach that tell you what's working, what's stalled, and what to do about it." />
+          <Step number={1} title="Log what you already do" description="Workouts, weight, sleep, food. Log as much or as little as you already track." />
+          <Step number={2} title="Let it crunch the numbers" description="Plateau checks, training volume, consistency, and goal progress get computed from your real history, not rough averages." />
+          <Step number={3} title="Get a straight answer" description="A weekly report and an AI coach that actually tell you what's working and what to fix." />
         </div>
       </section>
 
@@ -95,10 +95,10 @@ export default async function RootPage() {
             <ShieldCheck className="size-5" />
           </div>
           <div>
-            <h3 className="font-semibold text-sm">Your data stays yours</h3>
+            <h3 className="font-semibold text-sm">Your data is yours</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              Every insight is computed from your own logs — no invented numbers, no guessing.
-              Sign in with Google, no password to manage.
+              Every insight comes from what you actually logged. No made-up numbers, no
+              password to remember either, just sign in with Google.
             </p>
           </div>
         </div>
@@ -106,8 +106,8 @@ export default async function RootPage() {
 
       {/* Final CTA */}
       <section className="max-w-4xl mx-auto px-5 pb-20 text-center">
-        <h2 className="text-2xl font-bold">Start your first week free</h2>
-        <p className="text-sm text-muted-foreground mt-2">Takes less than a minute to sign up.</p>
+        <h2 className="text-2xl font-bold">See what your first week looks like</h2>
+        <p className="text-sm text-muted-foreground mt-2">Sign up takes about a minute.</p>
         <Link href="/login?mode=signup"
           className="inline-block mt-6 bg-primary text-primary-foreground px-8 py-3.5 rounded-xl font-semibold text-sm hover:opacity-90 active:scale-[0.98] transition-all">
           Create free account
