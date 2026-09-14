@@ -4,10 +4,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 const CreateSchema = z.object({
-  date:        z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  workoutType: z.enum(["push","pull","legs","upper","lower","full_body","custom"]),
-  name:        z.string().max(100).optional(),
-  notes:       z.string().max(500).optional(),
+  date:         z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  workoutType:  z.enum(["push","pull","legs","upper","lower","full_body","custom"]),
+  name:         z.string().max(100).optional(),
+  notes:        z.string().max(500).optional(),
+  seedDefaults: z.boolean().optional(),
 });
 
 export async function GET(req: Request) {

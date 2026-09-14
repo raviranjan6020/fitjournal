@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { X, Plus, Timer, Check, Trophy } from "lucide-react";
+import { X, Plus, Timer, Check, Trophy, Bookmark } from "lucide-react";
 import { ExerciseCatalog } from "./exercise-catalog";
 
 type Stage = "setup" | "active" | "complete";
@@ -15,16 +15,14 @@ type ActiveExercise = {
   lastSets: { weightKg: string; reps: number }[];
   sets: SetRow[];
 };
+type Template = {
+  id: string;
+  name: string;
+  workoutType: string;
+  exercises: { id: string; name: string }[];
+};
 
 const WORKOUT_TYPES = ["push","pull","legs","upper","lower","full_body","custom"] as const;
-const DEFAULTS: Record<string, string[]> = {
-  push:      ["Bench Press","Overhead Press","Incline Fly","Tricep Pushdown"],
-  pull:      ["Barbell Row","Lat Pulldown","Face Pull","Dumbbell Curl"],
-  legs:      ["Squat","Romanian Deadlift","Leg Press","Calf Raise"],
-  upper:     ["Bench Press","Barbell Row","Overhead Press","Pull-up"],
-  lower:     ["Squat","Romanian Deadlift","Lunges","Calf Raise"],
-  full_body: ["Squat","Bench Press","Barbell Row","Plank"],
-};
 
 export function WorkoutLogger() {
   const router = useRouter();
@@ -37,7 +35,20 @@ export function WorkoutLogger() {
   const [elapsedS,  setElapsed]   = useState(0);
   const [newPRs,    setNewPRs]    = useState<{ name: string; weightKg: number; reps: number }[]>([]);
   const [loading,   setLoading]   = useState(false);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateName,   setTemplateName]   = useState("");
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    fetch("/api/workouts/templates")
+      .then(r => r.json())
+      .then(setTemplates)
+      .finally(() => setTemplatesLoading(false));
+  }, []);
 
   useEffect(() => {
     if (stage === "active") {
@@ -54,36 +65,87 @@ export function WorkoutLogger() {
       const res = await fetch("/api/workouts/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workoutType: type, name: name.trim() || undefined }),
+        body: JSON.stringify({ workoutType: type, name: name.trim() || undefined, seedDefaults: true }),
       });
-      const session = await res.json();
+      const session: {
+        id: string;
+        exercises: { id: string; exerciseId: string; name: string; lastSets: { weightKg: string; reps: number }[] }[];
+      } = await res.json();
       setSessionId(session.id);
-
-      const defaultNames = DEFAULTS[type] ?? [];
-      if (defaultNames.length) {
-        const libRes = await fetch("/api/exercises");
-        const lib: { id: string; name: string; slug: string }[] = await libRes.json();
-        const toAdd = lib.filter(e => defaultNames.includes(e.name));
-
-        if (toAdd.length) {
-          const logsRes = await fetch(`/api/workouts/sessions/${session.id}/exercises`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ exerciseIds: toAdd.map(e => e.id) }),
-          });
-          const logs: { id: string; exerciseId: string; lastSets: { weightKg: string; reps: number }[] }[] = await logsRes.json();
-          const nameById = new Map(toAdd.map(e => [e.id, e.name]));
-          setExercises(logs.map(log => ({
-            logId: log.id,
-            exerciseId: log.exerciseId,
-            name: nameById.get(log.exerciseId) ?? "",
-            lastSets: log.lastSets,
-            sets: [{ w: "", r: "", done: false }],
-          })));
-        }
-      }
+      setExercises(session.exercises.map(log => ({
+        logId: log.id,
+        exerciseId: log.exerciseId,
+        name: log.name,
+        lastSets: log.lastSets,
+        sets: [{ w: "", r: "", done: false }],
+      })));
       setStage("active");
     } finally { setLoading(false); }
+  }
+
+  async function startFromTemplate(template: Template) {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/workouts/templates/${template.id}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) return;
+      const session: {
+        id: string;
+        workoutType: string;
+        name: string | null;
+        exercises: { id: string; exerciseId: string; name: string; lastSets: { weightKg: string; reps: number }[] }[];
+      } = await res.json();
+      setSessionId(session.id);
+      setType(session.workoutType);
+      setName(session.name ?? "");
+      setExercises(session.exercises.map(log => ({
+        logId: log.id,
+        exerciseId: log.exerciseId,
+        name: log.name,
+        lastSets: log.lastSets,
+        sets: [{ w: "", r: "", done: false }],
+      })));
+      setStage("active");
+    } finally { setLoading(false); }
+  }
+
+  async function deleteTemplateById(templateId: string) {
+    setTemplates(prev => prev.filter(t => t.id !== templateId));
+    try {
+      await fetch(`/api/workouts/templates/${templateId}`, { method: "DELETE" });
+    } catch {
+      // Refetch on failure rather than guessing what to restore.
+      fetch("/api/workouts/templates").then(r => r.json()).then(setTemplates);
+    }
+  }
+
+  async function saveAsTemplate() {
+    const trimmed = templateName.trim();
+    if (!trimmed || !exercises.length) return;
+    setSavingTemplate(true);
+    setTemplateError(null);
+    try {
+      const res = await fetch("/api/workouts/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: trimmed,
+          workoutType: type,
+          exerciseIds: exercises.map(e => e.exerciseId),
+        }),
+      });
+      if (res.ok) {
+        setShowSaveTemplate(false);
+        setTemplateName("");
+        fetch("/api/workouts/templates").then(r => r.json()).then(setTemplates);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setTemplateError(data.error ?? "Could not save template.");
+      }
+    } finally { setSavingTemplate(false); }
   }
 
   async function addExercisesFromCatalog(selected: { id: string; name: string }[]) {
@@ -234,8 +296,31 @@ export function WorkoutLogger() {
           <span className="w-9" />
         </div>
       </header>
-      <div className="max-w-md mx-auto px-5 py-6 space-y-5">
-        <Field label="Workout type">
+      <div className="max-w-md mx-auto px-5 py-6 space-y-6">
+        {!templatesLoading && templates.length > 0 && (
+          <Field label="Start from a saved template">
+            <div className="space-y-2">
+              {templates.map(t => (
+                <div key={t.id}
+                  className="flex items-center gap-2 bg-surface ring-1 ring-border rounded-xl px-3 py-2.5">
+                  <button onClick={() => startFromTemplate(t)} disabled={loading}
+                    className="flex-1 min-w-0 text-left disabled:opacity-60">
+                    <p className="text-sm font-semibold truncate">{t.name}</p>
+                    <p className="text-[11px] text-muted-foreground truncate capitalize">
+                      {t.workoutType.replace("_"," ")} · {t.exercises.map(e => e.name).join(", ")}
+                    </p>
+                  </button>
+                  <button onClick={() => deleteTemplateById(t.id)} aria-label={`Delete ${t.name}`}
+                    className="size-8 shrink-0 grid place-items-center rounded-lg text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors">
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </Field>
+        )}
+
+        <Field label="Or start fresh">
           <div className="flex flex-wrap gap-2">
             {WORKOUT_TYPES.map(t => (
               <button key={t} onClick={() => setType(t)}
@@ -273,10 +358,38 @@ export function WorkoutLogger() {
       </header>
 
       <div className="max-w-md mx-auto px-5 py-5 space-y-4">
-        <button onClick={() => setCatalog(true)}
-          className="w-full py-3 border-2 border-dashed border-border rounded-xl text-sm font-semibold text-muted-foreground hover:border-primary hover:text-primary flex items-center justify-center gap-2">
-          <Plus className="size-4" /> Add Exercise
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setCatalog(true)}
+            className="flex-1 py-3 border-2 border-dashed border-border rounded-xl text-sm font-semibold text-muted-foreground hover:border-primary hover:text-primary flex items-center justify-center gap-2">
+            <Plus className="size-4" /> Add Exercise
+          </button>
+          {exercises.length > 0 && (
+            <button onClick={() => setShowSaveTemplate(true)} aria-label="Save as template"
+              className="shrink-0 size-[46px] grid place-items-center border-2 border-dashed border-border rounded-xl text-muted-foreground hover:border-primary hover:text-primary transition-colors">
+              <Bookmark className="size-4" />
+            </button>
+          )}
+        </div>
+
+        {showSaveTemplate && (
+          <div className="bg-surface ring-1 ring-primary/30 rounded-xl p-3 space-y-2">
+            <p className="text-xs font-semibold">Save these {exercises.length} exercises as a template</p>
+            <div className="flex gap-2">
+              <input value={templateName} onChange={e => setTemplateName(e.target.value)}
+                placeholder="e.g. Push Day A" maxLength={60}
+                className="flex-1 min-w-0 bg-background rounded-lg px-3 py-2 text-sm border border-border outline-none focus:border-primary" />
+              <button onClick={saveAsTemplate} disabled={savingTemplate || !templateName.trim()}
+                className="shrink-0 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-60">
+                {savingTemplate ? "Saving..." : "Save"}
+              </button>
+              <button onClick={() => { setShowSaveTemplate(false); setTemplateError(null); }} aria-label="Cancel"
+                className="shrink-0 size-9 grid place-items-center text-muted-foreground">
+                <X className="size-4" />
+              </button>
+            </div>
+            {templateError && <p className="text-xs text-danger">{templateError}</p>}
+          </div>
+        )}
 
         {exercises.map((ex, eIdx) => (
           <section key={ex.logId} className="bg-surface rounded-2xl ring-1 ring-black/5 overflow-hidden">

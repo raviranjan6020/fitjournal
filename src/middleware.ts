@@ -7,6 +7,7 @@ export default auth((req) => {
 
   // Public paths — always accessible
   const isPublic =
+    pathname === "/" ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/onboarding") ||
     pathname.startsWith("/api/auth") ||

@@ -1,8 +1,19 @@
 import { db } from "@/db";
 import { workoutSessions, workoutExerciseLogs, workoutSets, exerciseLibrary } from "@/db/schema";
-import { eq, and, desc, asc, max, sql } from "drizzle-orm";
+import { eq, and, desc, asc, max, sql, inArray } from "drizzle-orm";
 import { isoDate } from "@/lib/utils";
 import { checkPR } from "./pr-detector";
+
+// Default exercises seeded per workout type when a new session is started.
+// Names must match src/db/seed/exercises.ts exactly.
+const DEFAULT_EXERCISE_NAMES: Record<string, string[]> = {
+  push:      ["Bench Press", "Overhead Press", "Incline Fly", "Tricep Pushdown"],
+  pull:      ["Barbell Row", "Lat Pulldown", "Face Pull", "Dumbbell Curl"],
+  legs:      ["Squat", "Romanian Deadlift", "Leg Press", "Calf Raise"],
+  upper:     ["Bench Press", "Barbell Row", "Overhead Press", "Pull-up"],
+  lower:     ["Squat", "Romanian Deadlift", "Lunges", "Calf Raise"],
+  full_body: ["Squat", "Bench Press", "Barbell Row", "Plank"],
+};
 
 export async function listSessions(userId: string, limit = 20, offset = 0) {
   return db
@@ -28,6 +39,7 @@ export async function createSession(userId: string, data: {
   workoutType: string;
   name?: string;
   notes?: string;
+  seedDefaults?: boolean;
 }) {
   const [session] = await db
     .insert(workoutSessions)
@@ -39,7 +51,22 @@ export async function createSession(userId: string, data: {
       notes: data.notes ?? null,
     })
     .returning();
-  return session;
+
+  if (!data.seedDefaults) return { ...session, exercises: [] as Awaited<ReturnType<typeof addExercisesToSession>> };
+
+  const defaultNames = DEFAULT_EXERCISE_NAMES[data.workoutType] ?? [];
+  if (!defaultNames.length) return { ...session, exercises: [] as Awaited<ReturnType<typeof addExercisesToSession>> };
+
+  const defaultExercises = await db
+    .select({ id: exerciseLibrary.id })
+    .from(exerciseLibrary)
+    .where(inArray(exerciseLibrary.name, defaultNames));
+
+  const exercises = defaultExercises.length
+    ? await addExercisesToSession(userId, session.id, defaultExercises.map(e => e.id))
+    : [];
+
+  return { ...session, exercises };
 }
 
 export async function updateSession(userId: string, sessionId: string, data: {
@@ -112,6 +139,11 @@ export async function addExerciseToSession(userId: string, sessionId: string, ex
  * with its last-session sets pre-fetched — avoids N sequential
  * POST + GET round trips from the client (was the main cause of slow
  * workout-start / add-exercise flows).
+ *
+ * Collapsed to a fixed number of round trips regardless of how many
+ * exercises are added (previously: 1 + 1 + 1 + 2*N sequential/parallel
+ * Neon HTTP round trips — each one ~150-250ms on its own, so N=4 exercises
+ * still took ~2s even with the inserts batched and lookups parallelized).
  */
 export async function addExercisesToSession(userId: string, sessionId: string, exerciseIds: string[]) {
   if (!exerciseIds.length) return [];
@@ -119,10 +151,17 @@ export async function addExercisesToSession(userId: string, sessionId: string, e
   const session = await getSession(userId, sessionId);
   if (!session) return [];
 
-  const [{ maxIdx }] = await db
-    .select({ maxIdx: max(workoutExerciseLogs.orderIndex) })
-    .from(workoutExerciseLogs)
-    .where(eq(workoutExerciseLogs.sessionId, sessionId));
+  const [{ maxIdx }, exerciseNames] = await Promise.all([
+    db
+      .select({ maxIdx: max(workoutExerciseLogs.orderIndex) })
+      .from(workoutExerciseLogs)
+      .where(eq(workoutExerciseLogs.sessionId, sessionId))
+      .then(rows => rows[0]),
+    db
+      .select({ id: exerciseLibrary.id, name: exerciseLibrary.name, slug: exerciseLibrary.slug })
+      .from(exerciseLibrary)
+      .where(inArray(exerciseLibrary.id, exerciseIds)),
+  ]);
 
   const startIdx = (maxIdx ?? 0) + 1;
 
@@ -135,14 +174,15 @@ export async function addExercisesToSession(userId: string, sessionId: string, e
     })))
     .returning();
 
-  // Fetch last-session sets for all exercises in parallel (independent per exercise,
-  // so no benefit to a single combined query, but this still cuts N sequential
-  // request round trips down to N parallel in-process queries within one request).
-  const lastSetsByExercise = await Promise.all(
-    logs.map(log => getLastSessionSets(userId, log.exerciseId)),
-  );
+  const lastSetsByExercise = await getLastSessionSetsBulk(userId, exerciseIds);
+  const nameById = new Map(exerciseNames.map(e => [e.id, e]));
 
-  return logs.map((log, i) => ({ ...log, lastSets: lastSetsByExercise[i] }));
+  return logs.map(log => ({
+    ...log,
+    name:     nameById.get(log.exerciseId)?.name ?? "",
+    slug:     nameById.get(log.exerciseId)?.slug ?? "",
+    lastSets: lastSetsByExercise.get(log.exerciseId) ?? [],
+  }));
 }
 
 export async function removeExerciseFromSession(userId: string, sessionId: string, logId: string) {
@@ -234,25 +274,73 @@ export async function deleteSet(userId: string, sessionId: string, logId: string
 
 /** Last session's sets for an exercise — for pre-fill in UI */
 export async function getLastSessionSets(userId: string, exerciseId: string) {
-  const [lastSession] = await db
-    .select({ id: workoutSessions.id })
+  const result = await getLastSessionSetsBulk(userId, [exerciseId]);
+  return result.get(exerciseId) ?? [];
+}
+
+/**
+ * Bulk version of getLastSessionSets — resolves each exercise's most recent
+ * session and its sets in 2 round trips total, regardless of how many
+ * exercise IDs are passed in (vs. 2 round trips *per exercise* if called
+ * one at a time).
+ */
+export async function getLastSessionSetsBulk(userId: string, exerciseIds: string[]) {
+  const result = new Map<string, { weightKg: string; reps: number; isWarmup: boolean }[]>();
+  if (!exerciseIds.length) return result;
+
+  // Most recent session date per exercise, in one query using DISTINCT ON.
+  const lastSessions = await db
+    .select({
+      exerciseId:  workoutExerciseLogs.exerciseId,
+      sessionId:   workoutSessions.id,
+    })
     .from(workoutSessions)
     .innerJoin(workoutExerciseLogs, eq(workoutExerciseLogs.sessionId, workoutSessions.id))
-    .where(and(eq(workoutSessions.userId, userId), eq(workoutExerciseLogs.exerciseId, exerciseId)))
-    .orderBy(desc(workoutSessions.date))
-    .limit(1);
-  if (!lastSession) return [];
+    .where(
+      and(
+        eq(workoutSessions.userId, userId),
+        sql`${workoutExerciseLogs.exerciseId} = ANY(ARRAY[${sql.join(exerciseIds.map(id => sql`${id}::uuid`), sql`, `)}])`,
+      ),
+    )
+    .orderBy(workoutExerciseLogs.exerciseId, desc(workoutSessions.date));
 
-  return db
-    .select({ weightKg: workoutSets.weightKg, reps: workoutSets.reps, isWarmup: workoutSets.isWarmup })
+  // Keep only the first (most recent, due to ORDER BY) row per exercise.
+  const sessionIdByExercise = new Map<string, string>();
+  for (const row of lastSessions) {
+    if (!sessionIdByExercise.has(row.exerciseId)) sessionIdByExercise.set(row.exerciseId, row.sessionId);
+  }
+  if (!sessionIdByExercise.size) return result;
+
+  const sessionIds = [...new Set(sessionIdByExercise.values())];
+
+  const sets = await db
+    .select({
+      exerciseId: workoutExerciseLogs.exerciseId,
+      sessionId:  workoutExerciseLogs.sessionId,
+      weightKg:   workoutSets.weightKg,
+      reps:       workoutSets.reps,
+      isWarmup:   workoutSets.isWarmup,
+      setNumber:  workoutSets.setNumber,
+    })
     .from(workoutSets)
     .innerJoin(workoutExerciseLogs, eq(workoutSets.exerciseLogId, workoutExerciseLogs.id))
     .where(
       and(
-        eq(workoutExerciseLogs.sessionId, lastSession.id),
-        eq(workoutExerciseLogs.exerciseId, exerciseId),
+        sql`${workoutExerciseLogs.sessionId} = ANY(ARRAY[${sql.join(sessionIds.map(id => sql`${id}::uuid`), sql`, `)}])`,
+        sql`${workoutExerciseLogs.exerciseId} = ANY(ARRAY[${sql.join(exerciseIds.map(id => sql`${id}::uuid`), sql`, `)}])`,
         eq(workoutSets.isWarmup, false),
       ),
     )
     .orderBy(asc(workoutSets.setNumber));
+
+  for (const [exerciseId, sessionId] of sessionIdByExercise) {
+    result.set(exerciseId, []);
+    for (const s of sets) {
+      if (s.exerciseId === exerciseId && s.sessionId === sessionId) {
+        result.get(exerciseId)!.push({ weightKg: String(s.weightKg), reps: s.reps, isWarmup: s.isWarmup });
+      }
+    }
+  }
+
+  return result;
 }
