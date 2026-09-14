@@ -9,25 +9,27 @@ import type { GoalType } from "@/lib/constants";
 
 export interface GoalProgressSignal {
   type: string | null;
-  weight_status: "on_track" | "too_fast" | "too_slow" | "gaining" | "drifting" | "no_data";
+  weight_status: "on_track" | "too_fast" | "too_slow" | "gaining" | "drifting" | "no_data" | "collecting";
   recent_avg_kg: number | null;
   kg_per_week:   number | null;
   kg_to_goal:    number | null;   // always positive (absolute distance)
   message:       string;
+  data_points:   number;
 }
 
 export async function buildGoalProgressSignal(userId: string): Promise<GoalProgressSignal> {
   const goal  = await getActiveGoal(userId);
   const trend = await computeWeightTrend(userId, (goal?.goalType as GoalType) ?? null);
 
-  if (trend.status === "no_data") {
+  if (trend.status === "no_data" || trend.status === "collecting") {
     return {
       type:          goal?.goalType ?? null,
-      weight_status: "no_data",
+      weight_status: trend.status,
       recent_avg_kg: null,
       kg_per_week:   null,
       kg_to_goal:    null,
-      message:       "Log weight for 2+ weeks to see goal progress.",
+      message:       trend.message,
+      data_points:   trend.data_points,
     };
   }
 
@@ -42,5 +44,6 @@ export async function buildGoalProgressSignal(userId: string): Promise<GoalProgr
     kg_per_week:   trend.kg_per_week,
     kg_to_goal:    kgToGoal !== null ? Math.round(kgToGoal * 10) / 10 : null,
     message:       trend.message,
+    data_points:   trend.data_points,
   };
 }

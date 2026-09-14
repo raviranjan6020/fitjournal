@@ -57,6 +57,16 @@ export function ProgressClient({ weightHistory, snapshot, sessionDates }: Props)
 
 // ── Weight ────────────────────────────────────────────────────────────────────
 
+const WEIGHT_STATUS_LABEL: Record<string, string> = {
+  on_track:   "On track",
+  too_fast:   "Too fast",
+  too_slow:   "Too slow",
+  gaining:    "Gaining",
+  drifting:   "Drifting",
+  collecting: "Collecting data",
+  no_data:    "Not logged yet",
+};
+
 function WeightTab({ weightHistory, goal }: { weightHistory: { date: string; kg: number }[]; goal: GoalSignal | null }) {
   const kgs = weightHistory.map(w => w.kg);
   const min = Math.min(...kgs, 0);
@@ -66,6 +76,14 @@ function WeightTab({ weightHistory, goal }: { weightHistory: { date: string; kg:
     const y = 100 - ((v - min) / (max - min)) * 80 - 10;
     return `${x},${y}`;
   }).join(" ");
+
+  // The trend engine only reports recent_avg_kg once there's enough history
+  // for a real trend (8+ weigh-ins over 2+ weeks). Falling back to the most
+  // recently logged weight here means "Current" reflects what's actually on
+  // the chart instead of showing "—" right next to a populated graph.
+  const latestLoggedKg = weightHistory.length ? weightHistory[weightHistory.length - 1].kg : null;
+  const currentKg = goal?.recent_avg_kg ?? latestLoggedKg;
+  const statusLabel = goal?.weight_status ? WEIGHT_STATUS_LABEL[goal.weight_status] ?? goal.weight_status : "—";
 
   return (
     <>
@@ -86,10 +104,10 @@ function WeightTab({ weightHistory, goal }: { weightHistory: { date: string; kg:
         )}
       </Card>
       <div className="grid grid-cols-2 gap-3">
-        <MiniStat label="Current"  value={goal?.recent_avg_kg ? `${goal.recent_avg_kg}kg` : "—"} />
-        <MiniStat label="Trend"    value={goal?.kg_per_week   ? `${goal.kg_per_week}kg/wk` : "—"} tone={goal?.weight_status === "on_track" ? "text-success" : goal?.weight_status === "no_data" ? "" : "text-warning"} />
+        <MiniStat label="Current"  value={currentKg !== null ? `${currentKg}kg` : "—"} />
+        <MiniStat label="Trend"    value={goal?.kg_per_week ? `${goal.kg_per_week}kg/wk` : "—"} tone={goal?.weight_status === "on_track" ? "text-success" : goal?.weight_status === "no_data" || goal?.weight_status === "collecting" ? "" : "text-warning"} />
         <MiniStat label="Target"   value={goal?.kg_to_goal !== null && goal?.kg_to_goal !== undefined ? `${goal.kg_to_goal}kg to go` : "—"} />
-        <MiniStat label="Status"   value={goal?.weight_status ?? "—"} />
+        <MiniStat label="Status"   value={statusLabel} />
       </div>
       {goal?.message && <p className="text-xs text-muted-foreground">{goal.message}</p>}
     </>
@@ -98,6 +116,13 @@ function WeightTab({ weightHistory, goal }: { weightHistory: { date: string; kg:
 
 // ── Strength ──────────────────────────────────────────────────────────────────
 
+const STRENGTH_STATUS_LABEL: Record<string, string> = {
+  improving: "Improving",
+  stalled:   "Stalled",
+  regressed: "Down",
+  no_data:   "Needs another session",
+};
+
 function StrengthTab({ strength }: { strength: OverloadSignal[] }) {
   if (!strength.length) return (
     <Card><p className="text-sm text-muted-foreground text-center py-8">Log workouts to see strength trends.</p></Card>
@@ -105,7 +130,7 @@ function StrengthTab({ strength }: { strength: OverloadSignal[] }) {
 
   return (
     <Card>
-      <h3 className="label mb-4">Key lifts — session over session</h3>
+      <h3 className="label mb-4">Key lifts, session over session</h3>
       <div className="space-y-4">
         {strength.map(s => (
           <div key={s.exercise} className="flex items-center justify-between gap-3">
@@ -113,13 +138,18 @@ function StrengthTab({ strength }: { strength: OverloadSignal[] }) {
             <div className="flex items-center gap-2 shrink-0">
               {s.status === "improving" ? (
                 <TrendingUp className="size-4 text-success" />
-              ) : s.status === "regressed" ? (
-                <AlertTriangle className="size-4 text-danger" />
-              ) : (
-                <AlertTriangle className="size-4 text-warning" />
+              ) : s.status === "no_data" ? null : (
+                <AlertTriangle className={`size-4 ${s.status === "regressed" ? "text-danger" : "text-warning"}`} />
               )}
-              <span className={`text-xs font-semibold font-mono ${s.status === "improving" ? "text-success" : s.status === "regressed" ? "text-danger" : "text-warning"}`}>
-                {s.change_kg !== null && s.change_kg !== 0 ? `${s.change_kg > 0 ? "+" : ""}${s.change_kg}kg` : s.status}
+              <span className={`text-xs font-semibold font-mono ${
+                s.status === "improving" ? "text-success" :
+                s.status === "regressed" ? "text-danger"  :
+                s.status === "no_data"   ? "text-muted-foreground" :
+                "text-warning"
+              }`}>
+                {s.change_kg !== null && s.change_kg !== 0
+                  ? `${s.change_kg > 0 ? "+" : ""}${s.change_kg}kg`
+                  : STRENGTH_STATUS_LABEL[s.status] ?? s.status}
               </span>
             </div>
           </div>
@@ -142,7 +172,7 @@ function VolumeTab({ volume }: { volume: Record<string, VolumeSignal> }) {
 
   return (
     <Card>
-      <h3 className="label mb-4">Sets per muscle — this week</h3>
+      <h3 className="label mb-4">Sets per muscle this week</h3>
       <div className="space-y-4">
         {entries.map(([muscle, v]) => (
           <div key={muscle} className="space-y-1.5">

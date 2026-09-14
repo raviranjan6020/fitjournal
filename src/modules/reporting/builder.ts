@@ -52,9 +52,12 @@ export function buildWeeklyReport(
     else low.push(muscle);
   }
 
-  // Strength highlights (top 5)
+  // Strength highlights (top 5). Lifts the overload engine has no verdict on
+  // yet (no_data — usually just one logged session so far) are excluded here:
+  // they'd otherwise crowd out lifts that do have a real status, and "not
+  // enough data" isn't a highlight worth a slot in a 5-item summary.
   const strengthHighlights = [
-    ...snapshot.strength.slice(0, 4).map(s => ({ name: s.name, status: s.status, change_kg: s.change_kg })),
+    ...snapshot.strength.filter(s => s.status !== "no_data").slice(0, 4).map(s => ({ name: s.name, status: s.status, change_kg: s.change_kg })),
     ...snapshot.plateaus.map(p => ({ name: p.name, status: "plateau" as string, change_kg: null, weeks_stalled: p.weeks_stalled })),
   ].slice(0, 5);
 
@@ -80,28 +83,28 @@ export function buildWeeklyReport(
 
 function buildHeadline(s: SnapshotContent): string {
   if (s.new_prs.length > 0) return `New PR on ${s.new_prs[0].name} this week! 🎉`;
-  if (s.goal.weight_status === "on_track" && s.consistency.status === "good") return "Solid week — on track.";
+  if (s.goal.weight_status === "on_track" && s.consistency.status === "good") return "Solid week, on track.";
   if (s.plateaus.length > 0) return `${s.plateaus[0].name} stalled ${s.plateaus[0].weeks_stalled} weeks. Needs attention.`;
   if (s.nutrition.protein_status === "very_low") return "Protein was below target most days.";
   return "Here's your weekly summary.";
 }
 
 function buildRecommendation(s: SnapshotContent): string {
-  if (s.plateaus.length > 0) return `${s.plateaus[0].name} has stalled — try a rep range change (e.g. 4×8 → 5×5).`;
-  if (s.goal.weight_status === "too_fast" && s.goal.type === "lean_bulk") return "Reduce calories slightly. Aim for 0.25–0.4% gain/week.";
+  if (s.plateaus.length > 0) return `${s.plateaus[0].name} has stalled. Try a rep range change (e.g. 4×8 to 5×5).`;
+  if (s.goal.weight_status === "too_fast" && s.goal.type === "lean_bulk") return "Reduce calories slightly. Aim for 0.25-0.4% gain/week.";
   if (s.goal.weight_status === "too_slow" && s.goal.type === "fat_loss") return "Slight deficit increase or add one cardio session.";
   if (s.nutrition.protein_status === "very_low") return `Hit protein target ${s.nutrition.protein_target_g}g on 5/7 days this week.`;
   const lowMuscles = Object.entries(s.volume).filter(([, v]) => v.status === "low").map(([m]) => m);
-  if (lowMuscles.length > 0) return `${capitalize(lowMuscles[0])} volume low. Add 2–4 sets next week.`;
+  if (lowMuscles.length > 0) return `${capitalize(lowMuscles[0])} volume is low. Add 2-4 sets next week.`;
   if (s.consistency.status === "low") return `Aim for ${s.consistency.target_per_week} workouts this week.`;
   return "Keep it up. Same plan next week.";
 }
 
 function buildAlerts(s: SnapshotContent): string[] {
   const alerts: string[] = [];
-  if (s.goal.weight_status === "too_fast") alerts.push("Weight changing too fast — adjust intake.");
+  if (s.goal.weight_status === "too_fast") alerts.push("Weight changing too fast, adjust intake.");
   if (s.nutrition.protein_status === "very_low") alerts.push(`Protein very low (${s.nutrition.protein_avg_g}g vs ${s.nutrition.protein_target_g}g target).`);
-  if (s.sleep.status === "low" && s.sleep.avg_hours) alerts.push(`Average sleep ${s.sleep.avg_hours}h — below 7h target.`);
+  if (s.sleep.status === "low" && s.sleep.avg_hours) alerts.push(`Average sleep ${s.sleep.avg_hours}h, below 7h target.`);
   for (const p of s.plateaus) alerts.push(`${p.name} stalled ${p.weeks_stalled} weeks.`);
   return alerts;
 }
