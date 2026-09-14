@@ -84,6 +84,28 @@ export async function updateSession(userId: string, sessionId: string, data: {
 }
 
 export async function deleteSession(userId: string, sessionId: string) {
+  // No onDelete: cascade on workout_exercise_logs.sessionId or
+  // workout_sets.exerciseLogId, so deleting a session that has any logged
+  // exercises/sets previously failed with an FK violation (surfaced to the
+  // client as an uncaught 500). Delete child rows first, deepest first.
+  const session = await getSession(userId, sessionId);
+  if (!session) return false;
+
+  const logs = await db
+    .select({ id: workoutExerciseLogs.id })
+    .from(workoutExerciseLogs)
+    .where(eq(workoutExerciseLogs.sessionId, sessionId));
+
+  if (logs.length) {
+    const logIds = logs.map(l => l.id);
+    await db
+      .delete(workoutSets)
+      .where(sql`${workoutSets.exerciseLogId} = ANY(ARRAY[${sql.join(logIds.map(id => sql`${id}::uuid`), sql`, `)}])`);
+    await db
+      .delete(workoutExerciseLogs)
+      .where(eq(workoutExerciseLogs.sessionId, sessionId));
+  }
+
   const result = await db
     .delete(workoutSessions)
     .where(and(eq(workoutSessions.id, sessionId), eq(workoutSessions.userId, userId)))
@@ -188,6 +210,12 @@ export async function addExercisesToSession(userId: string, sessionId: string, e
 export async function removeExerciseFromSession(userId: string, sessionId: string, logId: string) {
   const session = await getSession(userId, sessionId);
   if (!session) return false;
+
+  // Same missing-cascade issue as deleteSession: delete sets before the
+  // exercise log, or this fails with an FK violation once any set has been
+  // saved for this exercise.
+  await db.delete(workoutSets).where(eq(workoutSets.exerciseLogId, logId));
+
   const result = await db
     .delete(workoutExerciseLogs)
     .where(and(eq(workoutExerciseLogs.id, logId), eq(workoutExerciseLogs.sessionId, sessionId)))
