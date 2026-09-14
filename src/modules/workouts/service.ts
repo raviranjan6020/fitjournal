@@ -103,21 +103,46 @@ export async function getSessionWithExercises(userId: string, sessionId: string)
 }
 
 export async function addExerciseToSession(userId: string, sessionId: string, exerciseId: string) {
-  // Verify session ownership
-  const session = await getSession(userId, sessionId);
-  if (!session) return null;
+  const [log] = await addExercisesToSession(userId, sessionId, [exerciseId]);
+  return log ?? null;
+}
 
-  // Next order index
+/**
+ * Batch-add multiple exercises to a session in one insert, and return each
+ * with its last-session sets pre-fetched — avoids N sequential
+ * POST + GET round trips from the client (was the main cause of slow
+ * workout-start / add-exercise flows).
+ */
+export async function addExercisesToSession(userId: string, sessionId: string, exerciseIds: string[]) {
+  if (!exerciseIds.length) return [];
+
+  const session = await getSession(userId, sessionId);
+  if (!session) return [];
+
   const [{ maxIdx }] = await db
     .select({ maxIdx: max(workoutExerciseLogs.orderIndex) })
     .from(workoutExerciseLogs)
     .where(eq(workoutExerciseLogs.sessionId, sessionId));
 
-  const [log] = await db
+  const startIdx = (maxIdx ?? 0) + 1;
+
+  const logs = await db
     .insert(workoutExerciseLogs)
-    .values({ sessionId, exerciseId, orderIndex: (maxIdx ?? 0) + 1 })
+    .values(exerciseIds.map((exerciseId, i) => ({
+      sessionId,
+      exerciseId,
+      orderIndex: startIdx + i,
+    })))
     .returning();
-  return log;
+
+  // Fetch last-session sets for all exercises in parallel (independent per exercise,
+  // so no benefit to a single combined query, but this still cuts N sequential
+  // request round trips down to N parallel in-process queries within one request).
+  const lastSetsByExercise = await Promise.all(
+    logs.map(log => getLastSessionSets(userId, log.exerciseId)),
+  );
+
+  return logs.map((log, i) => ({ ...log, lastSets: lastSetsByExercise[i] }));
 }
 
 export async function removeExerciseFromSession(userId: string, sessionId: string, logId: string) {
@@ -176,10 +201,11 @@ export async function addSet(
 export async function updateSet(
   userId: string,
   sessionId: string,
+  logId: string,
   setId: string,
   data: { weightKg?: number; reps?: number; rpe?: number; isWarmup?: boolean },
 ) {
-  // Verify ownership via session
+  // Verify ownership via session, and that the set belongs to this exercise log
   const session = await getSession(userId, sessionId);
   if (!session) return null;
 
@@ -191,17 +217,17 @@ export async function updateSet(
       rpe:      data.rpe !== undefined ? String(data.rpe) : undefined,
       isWarmup: data.isWarmup,
     })
-    .where(eq(workoutSets.id, setId))
+    .where(and(eq(workoutSets.id, setId), eq(workoutSets.exerciseLogId, logId)))
     .returning();
   return updated ?? null;
 }
 
-export async function deleteSet(userId: string, sessionId: string, setId: string) {
+export async function deleteSet(userId: string, sessionId: string, logId: string, setId: string) {
   const session = await getSession(userId, sessionId);
   if (!session) return false;
   const result = await db
     .delete(workoutSets)
-    .where(eq(workoutSets.id, setId))
+    .where(and(eq(workoutSets.id, setId), eq(workoutSets.exerciseLogId, logId)))
     .returning({ id: workoutSets.id });
   return result.length > 0;
 }

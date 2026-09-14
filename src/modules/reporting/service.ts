@@ -1,7 +1,8 @@
 import { db } from "@/db";
 import { reports, analyticsSnapshots } from "@/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, gte, lte, lt } from "drizzle-orm";
 import { buildWeeklyReport } from "./builder";
+import { addDays } from "@/lib/utils";
 
 export async function listReports(userId: string, limit = 20) {
   return db
@@ -29,24 +30,43 @@ export async function markReportRead(userId: string, reportId: string) {
 }
 
 export async function generateWeeklyReport(userId: string, periodStart: string, periodEnd: string) {
-  // Get current snapshot (should already be built by analytics)
+  // The analytics snapshot is a rolling "as of" snapshot (dated when it was built),
+  // not a historical per-week record. The normal cadence builds it the day *after*
+  // periodEnd (cron runs Monday for the Mon–Sun week that just closed), so we can't
+  // require snapshotDate to fall inside [periodStart, periodEnd] — that would reject
+  // the very snapshot the cron just built. Instead: take the most recent snapshot no
+  // more than a few days after periodEnd, which covers both the cron's "day after"
+  // cadence and on-demand generation for the current/most recent period. This still
+  // rejects snapshots left over from an unrelated, much later period.
+  const snapshotCutoff = addDays(periodEnd, 3);
+
   const [current] = await db
     .select()
     .from(analyticsSnapshots)
-    .where(eq(analyticsSnapshots.userId, userId))
+    .where(
+      and(
+        eq(analyticsSnapshots.userId, userId),
+        lte(analyticsSnapshots.snapshotDate, snapshotCutoff),
+        gte(analyticsSnapshots.snapshotDate, periodStart),
+      ),
+    )
     .orderBy(desc(analyticsSnapshots.snapshotDate))
     .limit(1);
 
   if (!current) return null;
 
-  // Previous snapshot (for weight delta)
+  // Previous snapshot (for weight delta) — most recent snapshot before this period
   const [previous] = await db
     .select()
     .from(analyticsSnapshots)
-    .where(eq(analyticsSnapshots.userId, userId))
+    .where(
+      and(
+        eq(analyticsSnapshots.userId, userId),
+        lt(analyticsSnapshots.snapshotDate, periodStart),
+      ),
+    )
     .orderBy(desc(analyticsSnapshots.snapshotDate))
-    .limit(2)
-    .then(rows => rows.slice(1)); // second row = previous
+    .limit(1);
 
   const content = buildWeeklyReport(
     current.content as Parameters<typeof buildWeeklyReport>[0],

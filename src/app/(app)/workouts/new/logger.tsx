@@ -65,19 +65,22 @@ export function WorkoutLogger() {
         const lib: { id: string; name: string; slug: string }[] = await libRes.json();
         const toAdd = lib.filter(e => defaultNames.includes(e.name));
 
-        const seeded: ActiveExercise[] = [];
-        for (const ex of toAdd) {
-          const logRes = await fetch(`/api/workouts/sessions/${session.id}/exercises`, {
+        if (toAdd.length) {
+          const logsRes = await fetch(`/api/workouts/sessions/${session.id}/exercises`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ exerciseId: ex.id }),
+            body: JSON.stringify({ exerciseIds: toAdd.map(e => e.id) }),
           });
-          const log = await logRes.json();
-          const prefillRes = await fetch(`/api/exercises?lastSets=${ex.id}`);
-          const lastSets = await prefillRes.json();
-          seeded.push({ logId: log.id, exerciseId: ex.id, name: ex.name, lastSets, sets: [{ w: "", r: "", done: false }] });
+          const logs: { id: string; exerciseId: string; lastSets: { weightKg: string; reps: number }[] }[] = await logsRes.json();
+          const nameById = new Map(toAdd.map(e => [e.id, e.name]));
+          setExercises(logs.map(log => ({
+            logId: log.id,
+            exerciseId: log.exerciseId,
+            name: nameById.get(log.exerciseId) ?? "",
+            lastSets: log.lastSets,
+            sets: [{ w: "", r: "", done: false }],
+          })));
         }
-        setExercises(seeded);
       }
       setStage("active");
     } finally { setLoading(false); }
@@ -85,36 +88,80 @@ export function WorkoutLogger() {
 
   async function addExercisesFromCatalog(selected: { id: string; name: string }[]) {
     if (!sessionId) return;
-    const added: ActiveExercise[] = [];
-    for (const ex of selected) {
-      if (exercises.find(e => e.exerciseId === ex.id)) continue;
-      const logRes = await fetch(`/api/workouts/sessions/${sessionId}/exercises`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ exerciseId: ex.id }),
-      });
-      const log = await logRes.json();
-      const prefillRes = await fetch(`/api/exercises?lastSets=${ex.id}`);
-      const lastSets = await prefillRes.json();
-      added.push({ logId: log.id, exerciseId: ex.id, name: ex.name, lastSets, sets: [{ w: "", r: "", done: false }] });
-    }
+    const toAdd = selected.filter(ex => !exercises.find(e => e.exerciseId === ex.id));
+    if (!toAdd.length) { setCatalog(false); return; }
+
+    const logsRes = await fetch(`/api/workouts/sessions/${sessionId}/exercises`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ exerciseIds: toAdd.map(e => e.id) }),
+    });
+    const logs: { id: string; exerciseId: string; lastSets: { weightKg: string; reps: number }[] }[] = await logsRes.json();
+    const nameById = new Map(toAdd.map(e => [e.id, e.name]));
+    const added: ActiveExercise[] = logs.map(log => ({
+      logId: log.id,
+      exerciseId: log.exerciseId,
+      name: nameById.get(log.exerciseId) ?? "",
+      lastSets: log.lastSets,
+      sets: [{ w: "", r: "", done: false }],
+    }));
     setExercises(prev => [...prev, ...added]);
     setCatalog(false);
+  }
+
+  async function removeExercise(eIdx: number) {
+    if (!sessionId) return;
+    const ex = exercises[eIdx];
+    setExercises(prev => prev.filter((_, i) => i !== eIdx));
+    try {
+      await fetch(`/api/workouts/sessions/${sessionId}/exercises/${ex.logId}`, { method: "DELETE" });
+    } catch {
+      // If the delete fails, put it back rather than leaving the UI out of sync.
+      setExercises(prev => {
+        const next = [...prev];
+        next.splice(eIdx, 0, ex);
+        return next;
+      });
+    }
   }
 
   function updateSet(eIdx: number, sIdx: number, field: "w" | "r", val: string) {
     setExercises(prev => prev.map((e, i) => i !== eIdx ? e : {
       ...e,
-      sets: e.sets.map((s, j) => j !== sIdx ? s : { ...s, [field]: val }),
+      // Editing a previously-saved set marks it not-done again so the save
+      // button re-enables — the PATCH happens on next submitSet click.
+      sets: e.sets.map((s, j) => j !== sIdx ? s : { ...s, [field]: val, done: false }),
     }));
+  }
+
+  async function removeSet(eIdx: number, sIdx: number) {
+    const ex  = exercises[eIdx];
+    const set = ex.sets[sIdx];
+
+    setExercises(prev => prev.map((e, i) => i !== eIdx ? e : {
+      ...e, sets: e.sets.filter((_, j) => j !== sIdx),
+    }));
+
+    if (!set.id) return; // never saved — nothing to delete server-side
+    try {
+      await fetch(`/api/workouts/sessions/${sessionId}/exercises/${ex.logId}/sets/${set.id}`, { method: "DELETE" });
+    } catch {
+      // Put it back on failure so the UI reflects what's actually saved.
+      setExercises(prev => {
+        const next = [...prev];
+        const restored = { ...next[eIdx], sets: [...next[eIdx].sets] };
+        restored.sets.splice(sIdx, 0, set);
+        next[eIdx] = restored;
+        return next;
+      });
+    }
   }
 
   async function submitSet(eIdx: number, sIdx: number) {
     const ex  = exercises[eIdx];
     const set = ex.sets[sIdx];
 
-    // Already saved — don't double-submit
-    if (set.done || set.saving || set.id) return;
+    if (set.saving) return;
 
     // Require both fields
     if (!set.w || !set.r) return;
@@ -123,14 +170,22 @@ export function WorkoutLogger() {
     const reps     = Number(set.r);
     if (isNaN(weightKg) || isNaN(reps) || weightKg <= 0 || reps <= 0) return;
 
+    // Already saved with no changes since — nothing to do
+    if (set.done && set.id) return;
+
     // Mark as saving to prevent double-tap
     setExercises(prev => prev.map((e, i) => i !== eIdx ? e : {
       ...e, sets: e.sets.map((s, j) => j !== sIdx ? s : { ...s, saving: true }),
     }));
 
     try {
-      const res = await fetch(`/api/workouts/sessions/${sessionId}/exercises/${ex.logId}/sets`, {
-        method: "POST",
+      const isEdit = !!set.id;
+      const url = isEdit
+        ? `/api/workouts/sessions/${sessionId}/exercises/${ex.logId}/sets/${set.id}`
+        : `/api/workouts/sessions/${sessionId}/exercises/${ex.logId}/sets`;
+
+      const res = await fetch(url, {
+        method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ weightKg, reps, isWarmup: set.isWarmup ?? false }),
       });
@@ -225,13 +280,19 @@ export function WorkoutLogger() {
 
         {exercises.map((ex, eIdx) => (
           <section key={ex.logId} className="bg-surface rounded-2xl ring-1 ring-black/5 overflow-hidden">
-            <div className="p-4 border-b border-border">
-              <h3 className="font-semibold text-sm">{ex.name}</h3>
-              {ex.lastSets.length > 0 && (
-                <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                  Last: {ex.lastSets.map(s => `${s.weightKg}×${s.reps}`).join(", ")}
-                </p>
-              )}
+            <div className="p-4 border-b border-border flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-sm">{ex.name}</h3>
+                {ex.lastSets.length > 0 && (
+                  <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                    Last: {ex.lastSets.map(s => `${s.weightKg}×${s.reps}`).join(", ")}
+                  </p>
+                )}
+              </div>
+              <button onClick={() => removeExercise(eIdx)} aria-label={`Remove ${ex.name}`}
+                className="size-8 shrink-0 -mr-1 -mt-1 grid place-items-center rounded-lg text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors">
+                <X className="size-4" />
+              </button>
             </div>
 
             {/* Set rows */}
@@ -243,24 +304,28 @@ export function WorkoutLogger() {
                   </span>
                   <input type="number" inputMode="decimal" step="0.5" placeholder="kg" value={s.w}
                     onChange={e => updateSet(eIdx, sIdx, "w", e.target.value)}
-                    disabled={s.done}
-                    className="flex-1 min-w-0 bg-background rounded-lg px-2.5 py-2.5 text-sm font-mono text-center border border-border outline-none focus:border-primary disabled:opacity-60" />
+                    className="flex-1 min-w-0 bg-background rounded-lg px-2.5 py-2.5 text-sm font-mono text-center border border-border outline-none focus:border-primary" />
                   <span className="text-muted-foreground text-sm shrink-0">×</span>
                   <input type="number" inputMode="numeric" placeholder="reps" value={s.r}
                     onChange={e => updateSet(eIdx, sIdx, "r", e.target.value)}
-                    disabled={s.done}
-                    className="flex-1 min-w-0 bg-background rounded-lg px-2.5 py-2.5 text-sm font-mono text-center border border-border outline-none focus:border-primary disabled:opacity-60" />
+                    className="flex-1 min-w-0 bg-background rounded-lg px-2.5 py-2.5 text-sm font-mono text-center border border-border outline-none focus:border-primary" />
                   <button
                     onClick={() => submitSet(eIdx, sIdx)}
-                    disabled={s.done || s.saving || !s.w || !s.r}
-                    aria-label={s.done ? "Set saved" : "Save set"}
+                    disabled={s.saving || !s.w || !s.r}
+                    aria-label={s.done ? "Save changes" : "Save set"}
                     className={`size-10 shrink-0 rounded-lg grid place-items-center transition-colors ${
-                      s.done   ? "bg-success text-white" :
+                      s.done   ? "bg-success/15 text-success" :
                       s.saving ? "bg-warning/20 text-warning animate-pulse" :
                       (s.w && s.r) ? "bg-primary/20 text-primary" :
                       "bg-muted text-muted-foreground"
                     }`}>
                     <Check className="size-4" />
+                  </button>
+                  <button
+                    onClick={() => removeSet(eIdx, sIdx)}
+                    aria-label="Remove set"
+                    className="size-8 shrink-0 grid place-items-center rounded-lg text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors">
+                    <X className="size-3.5" />
                   </button>
                   {s.isPR && <span className="text-[10px] font-bold text-success uppercase shrink-0">PR</span>}
                 </div>

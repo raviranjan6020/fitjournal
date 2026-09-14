@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { exerciseLibrary } from "@/db/schema";
-import { or, eq, isNull } from "drizzle-orm";
+import { or, and, eq, isNull, ilike, sql } from "drizzle-orm";
 import { getLastSessionSets } from "@/modules/workouts/service";
 import { NextResponse } from "next/server";
 
@@ -20,22 +20,20 @@ export async function GET(req: Request) {
     return NextResponse.json(sets);
   }
 
+  const conditions = [
+    or(
+      isNull(exerciseLibrary.createdBy),
+      eq(exerciseLibrary.createdBy, session.user.id as string),
+    ),
+  ];
+  if (q) conditions.push(ilike(exerciseLibrary.name, `%${q}%`));
+  if (muscle) conditions.push(sql`${muscle} = ANY(${exerciseLibrary.muscleGroups})`);
+
   const exercises = await db
     .select()
     .from(exerciseLibrary)
-    .where(
-      or(
-        isNull(exerciseLibrary.createdBy),
-        eq(exerciseLibrary.createdBy, session.user.id as string),
-      ),
-    )
+    .where(and(...conditions))
     .orderBy(exerciseLibrary.name); // alphabetical
 
-  const filtered = exercises.filter(e => {
-    const matchQ      = !q      || e.name.toLowerCase().includes(q.toLowerCase());
-    const matchMuscle = !muscle || e.muscleGroups.includes(muscle);
-    return matchQ && matchMuscle;
-  });
-
-  return NextResponse.json(filtered);
+  return NextResponse.json(exercises);
 }

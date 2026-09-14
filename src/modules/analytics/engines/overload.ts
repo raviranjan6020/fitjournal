@@ -1,11 +1,13 @@
 /**
  * Progressive Overload Engine
  * Compares best e1RM per session across user's top exercises.
+ * Scoped to a lookback window so a lift from months ago isn't compared
+ * to a recent session and reported as current status.
  * Returns improving / stalled / regressed / no_data per exercise.
  */
 import { db } from "@/db";
 import { workoutSessions, workoutExerciseLogs, workoutSets, exerciseLibrary } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, gte, desc } from "drizzle-orm";
 
 export interface OverloadSignal {
   exercise: string;       // slug
@@ -19,8 +21,8 @@ export interface OverloadSignal {
 /** Epley estimated 1RM */
 function e1rm(kg: number, reps: number) { return kg * (1 + reps / 30); }
 
-export async function buildOverloadSignals(userId: string): Promise<OverloadSignal[]> {
-  // Get top 8 exercises by frequency (most logged)
+export async function buildOverloadSignals(userId: string, since: string): Promise<OverloadSignal[]> {
+  // Get top 8 exercises by frequency (most logged), within the lookback window
   const logs = await db
     .select({
       exerciseId:   workoutExerciseLogs.exerciseId,
@@ -34,7 +36,7 @@ export async function buildOverloadSignals(userId: string): Promise<OverloadSign
     .innerJoin(workoutExerciseLogs, eq(workoutSets.exerciseLogId, workoutExerciseLogs.id))
     .innerJoin(workoutSessions,     eq(workoutExerciseLogs.sessionId, workoutSessions.id))
     .innerJoin(exerciseLibrary,     eq(workoutExerciseLogs.exerciseId, exerciseLibrary.id))
-    .where(and(eq(workoutSessions.userId, userId), eq(workoutSets.isWarmup, false)))
+    .where(and(eq(workoutSessions.userId, userId), eq(workoutSets.isWarmup, false), gte(workoutSessions.date, since)))
     .orderBy(desc(workoutSessions.date));
 
   if (!logs.length) return [];
