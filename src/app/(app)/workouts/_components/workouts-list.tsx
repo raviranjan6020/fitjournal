@@ -30,6 +30,7 @@ export function WorkoutsList({ initialSessions }: { initialSessions: WorkoutRow[
           </Link>
           <DeleteWorkoutButton
             sessionId={s.id}
+            workoutName={s.name ?? s.workoutType.replace("_", " ")}
             onDeleted={() => setSessions(prev => prev.filter(x => x.id !== s.id))}
           />
         </div>
